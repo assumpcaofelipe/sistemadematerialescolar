@@ -1,0 +1,444 @@
+============================================================
+  GUIA DE DEPLOY EM PRODUCAO
+  Central de Pedidos Escolares
+============================================================
+
+SUMARIO
+-------
+  1. Requisitos do Servidor
+  2. Upload dos Arquivos
+  3. Configuracao do Banco de Dados
+  4. Arquivo .env
+  5. Permissoes de Diretorio
+  6. Configuracao do Servidor Web (Apache)
+  7. Instalacao do Composer / PHPMailer
+  8. PWA (Progressive Web App)
+  9. Verificacao Pos-Deploy
+  10. Acessos Iniciais
+  11. Checklist de Seguranca
+  12. Solucao de Problemas Comuns
+
+
+============================================================
+1. REQUISITOS DO SERVIDOR
+============================================================
+
+Antes de fazer o upload, verifique se sua hospedagem atende
+aos seguintes requisitos minimos:
+
+  - PHP 8.3 ou superior (compativel com 8.4)
+  - Extensoes PHP obrigigatorias:
+      * pdo_mysql
+      * mbstring
+      * openssl
+      * json
+      * fileinfo (para upload de imagens)
+  - MySQL 8.x ou MariaDB 10.6+
+  - Servidor web Apache com mod_rewrite habilitado
+  - Suporte a .htaccess
+
+Para verificar o PHP na hospedagem, crie um arquivo
+info.php com o conteudo <?php phpinfo(); ?> e acesse
+pelo navegador. Delete apos verificar.
+
+
+============================================================
+2. UPLOAD DOS ARQUIVOS
+============================================================
+
+Envie TODOS os arquivos e pastas do projeto para o
+diretorio de hospedagem. Estrutura esperada:
+
+  /public_html/          (ou o root do seu dominio)
+      |- .htaccess              (redirecionamento para public/)
+      |- .env                   (configuracao - criar, nao subir o .env.example)
+      |- composer.json
+      |- composer.lock
+      |- bootstrap/
+      |- app/
+      |- config/
+      |- database/
+      |- routes/
+      |- views/
+      |- public/                (se o host aponta para public/, mova os files)
+      |    |- index.php
+      |    |- .htaccess
+      |    |- manifest.json
+      |    |- service-worker.js
+      |    |- assets/
+      |    |- uploads/          (criar e dar permissao de escrita)
+      |- vendor/                (gerado pelo composer install)
+
+IMPORTANTE - DUAS OPCOES DE ESTRUTURA:
+
+  OPCAO A (Recomendada - DocumentRoot em public/):
+  -----------------------------------------------
+  Se a hospedagem permite configurar o DocumentRoot,
+  aponte para a pasta "public/" e coloque os arquivos
+  assim:
+
+    /home/usuario/dominio/
+        |- .htaccess (redireciona para public/)
+        |- .env
+        |- composer.json
+        |- app/ config/ routes/ views/ bootstrap/ database/ vendor/
+        |- public/   <-- DocumentRoot aponta aqui
+             |- index.php
+             |- .htaccess
+             |- assets/
+             |- uploads/
+             |- manifest.json
+             |- service-worker.js
+
+  OPCAO B (DocumentRoot na raiz do projeto):
+  ------------------------------------------
+  Se NAO pode mudar o DocumentRoot, coloque tudo
+  na raiz e use os .htaccess para proteger pastas
+  que nao devem ser acessadas diretamente.
+
+
+============================================================
+3. CONFIGURACAO DO BANCO DE DADOS
+============================================================
+
+3.1 - Crie o banco de dados no painel da hospedagem (cPanel,
+      Plesk, ou equivalente):
+
+      Nome: central_pedidos (ou o nome que preferir)
+      Charset: utf8mb4
+      Collation: utf8mb4_unicode_ci
+
+3.2 - Crie um usuario MySQL com acesso total (ALL PRIVILEGES)
+      ao banco criado. Anote:
+      - Usuario
+      - Senha
+      - Host (geralmente "localhost")
+
+3.3 - Importe o schema do banco:
+
+      Opcao 1 - Via phpMyAdmin:
+        a) Acesse o phpMyAdmin no painel da hospedagem
+        b) Selecione o banco "central_pedidos"
+        c) Clique na aba "Importar"
+        d) Selecione o arquivo database/schema.sql
+        e) Clique "Continuar" / "Go"
+
+      Opcao 2 - Via linha de comando (SSH):
+        mysql -u USUARIO -p SENHA central_pedidos < database/schema.sql
+
+      Isso criara as 6 tabelas e os dados iniciais:
+        - Tabelas: usuarios, categorias, produtos, pedidos,
+          itens_pedido, configuracoes
+        - Admin padrao: admin@educacao.gov / admin123
+        - Categoria padrao: "Material Escolar"
+
+3.4 - IMPORTANTE: Altere a senha do admin padrao apos o
+      primeiro acesso (painel admin > Usuarios > editar).
+
+
+============================================================
+4. ARQUIVO .env
+============================================================
+
+Na raiz do projeto, crie o arquivo .env com suas
+configuracoes de producao. Copie o modelo abaixo e
+substitua os valores:
+
+  ----- CONTEUDO DO .env -----
+
+  APP_URL=https://seudominio.com.br
+  APP_TIMEZONE=America/Sao_Paulo
+
+  DB_HOST=localhost
+  DB_NAME=central_pedidos
+  DB_USER=seu_usuario_mysql
+  DB_PASS=sua_senha_mysql
+
+  # SMTP (e-mail da hospedagem ou servico externo)
+  MAIL_HOST=mail.seudominio.com.br
+  MAIL_PORT=465
+  MAIL_ENCRYPTION=ssl
+  MAIL_USERNAME=pedidos@seudominio.com.br
+  MAIL_PASSWORD=sua_senha_email
+  MAIL_FROM_NAME="Central de Pedidos Escolares"
+
+  # WhatsApp (numero da secretaria com codigo do pais)
+  WHATSAPP_FALLBACK=5500000000000
+
+  ----- FIM -----
+
+NOTAS SOBRE O .env:
+
+  - APP_URL: URL completa do site (com https://).
+    Se deixar vazio, o sistema detecta automaticamente,
+    mas e recomendado definir em producao.
+
+  - DB_HOST: Geralmente "localhost" na maioria das
+    hospedagens. Alguns provedores usam "127.0.0.1"
+    ou um endereco especifico (verifique o painel).
+
+  - SMTP: Opcional mas recomendado. Se nao configurar,
+    o sistema funciona normalmente mas nao enviara
+    e-mails de notificacao. O link do WhatsApp continua
+    funcionando normalmente.
+
+  - WHATSAPP_FALLBACK: Numero com codigo do pais e DDD.
+    Exemplo: 5511999999999 (Brasil, DDD 11).
+
+
+============================================================
+5. PERMISSOES DE DIRETORIO
+============================================================
+
+Ajuste as permissoes via FTP/SSH ou painel da hospedagem:
+
+  Diretorio                      Permissao
+  -----------------------------  ----------
+  Tudo (pastas)                  755
+  Tudo (arquivos)                644
+
+  Pastas especificas que precisam de ESCRITA:
+  public/uploads/                775 ou 755
+  (onde as imagens dos produtos sao salvas)
+
+  Arquivos especificos que precisam de protecao:
+  .env                           640 ou 600
+  (se o host suportar, bloquear acesso via .htaccess)
+
+Se a hospedagem usa PHP-FPM ou outro usuario de processo,
+verifique se o usuario do PHP tem acesso de leitura/escrita
+as pastas necessarias.
+
+
+============================================================
+6. CONFIGURACAO DO SERVIDOR WEB (APACHE)
+============================================================
+
+O projeto ja inclui os arquivos .htaccess necessarios.
+Verifique se o mod_rewrite esta habilitado na hospedagem.
+
+Raiz do projeto (.htaccess na raiz):
+  - Redireciona todas as requisicoes para public/index.php
+
+Pasta public/ (.htaccess em public/):
+  - Redireciona URLs amigaveis para index.php
+
+CASO O MOD_REWRITE NAO FUNCIONE:
+
+  Se o servidor nao suporta .htaccess, voce pode:
+  1. Criar um arquivo public/router.php com:
+     <?php
+     require __DIR__ . '/index.php';
+  2. Configurar o Apache VirtualHost para apontar
+     todas as requisicoes para public/router.php
+
+  Ou entre em contato com o suporte da hospedagem
+  para habilitar o mod_rewrite.
+
+
+============================================================
+7. INSTALACAO DO COMPOSER / PHPMAILER
+============================================================
+
+O PHPMailer e a unica dependencia externa do projeto.
+
+OPCAO 1 - Instalar via SSH (recomendado):
+  cd /caminho/do/projeto
+  composer install --no-dev --optimize-autoloader
+
+  Isso instala o PHPMailer e gera o autoload otimizado
+  para producao. A pasta vendor/ sera criada.
+
+OPCAO 2 - Upload manual (sem SSH):
+  Se a hospedagem nao tem Composer/SSH:
+  1. Execute "composer install" localmente
+  2. Faca upload da pasta vendor/ completa para o
+     servidor junto com os demais arquivos
+  3. Verifique que vendor/autoload.php existe no servidor
+
+OPCAO 3 - Composer via painel:
+  Algumas hospedagens brasileiras (como Hostinger,
+  HostGator,等) tem Composer no painel. Use-o para
+  instalar as dependencias diretamente no servidor.
+
+SEM COMPOSER: O sistema NAO funcionara sem o vendor/.
+Se encontrar erro "Class 'PHPMailer\PHPMailer\PHPMailer'
+not found", significa que o Composer nao foi executado.
+
+
+============================================================
+8. PWA (PROGRESSIVE WEB APP)
+============================================================
+
+O sistema funciona como PWA (instalavel no celular/PC).
+
+Para funcionar corretamente em producao:
+
+  1. O site DEVE rodar em HTTPS
+  2. O manifest.json esta em public/manifest.json
+  3. O service-worker.js esta em public/service-worker.js
+
+ICONES PWA:
+  Coloque os seguintes icones em public/assets/images/:
+    - icone.png       (icone generico)
+    - icone-192.png   (192x192 pixels)
+    - icone-512.png   (512x512 pixels)
+
+Se nao tiver os icones, crie ou use um gerador online
+(ex: favicon-generator.org) e faca upload.
+
+
+============================================================
+9. VERIFICACAO POS-DEPLOY
+============================================================
+
+Apos fazer o upload e configurar tudo, teste:
+
+  [ ] Acessar a pagina de login: https://seudominio.com.br/
+  [ ] Fazer login com o admin: admin@educacao.gov / admin123
+  [ ] Acessar o painel admin: https://seudominio.com.br/admin
+  [ ] Criar uma categoria de teste
+  [ ] Criar um produto de teste com imagem
+  [ ] Criar uma escola (usuario tipo "escola")
+  [ ] Login como escola e navegar o catalogo
+  [ ] Adicionar itens ao carrinho
+  [ ] Confirmar um pedido
+  [ ] Verificar se o pedido aparece no painel admin
+  [ ] Testar o status do pedido (em andamento, concluido)
+  [ ] Verificar o dashboard com graficos
+  [ ] Testar busca e filtros
+  [ ] Verificar se imagens sao exibidas corretamente
+  [ ] Testar em dispositivo movel (PWA)
+
+SE ENCONTRAR ERROS:
+  - Verifique o log de erros do PHP na hospedagem
+  - Verifique se o .env esta correto
+  - Verifique as permissoes de pastas
+  - Consulte a secao "12. Solucao de Problemas"
+
+
+============================================================
+10. ACESSOS INICIAIS
+============================================================
+
+URLS IMPORTANTES:
+
+  Login Escola:     https://seudominio.com.br/
+  Catalogo:         https://seudominio.com.br/catalogo
+  Login Admin:      https://seudominio.com.br/admin
+  Dashboard Admin:  https://seudominio.com.br/admin/dashboard
+
+CREDENCIAIS PADRAO (trocar apos primeiro acesso):
+
+  Admin:
+    Email: admin@educacao.gov
+    Senha: admin123
+
+  Para alterar a senha:
+    1. Faca login no admin
+    2. Va em Usuarios
+    3. Clique em Editar no usuario Administrador
+    4. Defina uma nova senha segura
+    5. Salve
+
+  PROIBIDO manter a senha padrao em producao!
+
+
+============================================================
+11. CHECKLIST DE SEGURANCA
+============================================================
+
+Antes de colocar em producao, verifique:
+
+  [ ] Senha do admin padrao foi alterada
+  [ ] Arquivo .env NAO e acessivel pelo navegador
+      (nao esta na pasta public/)
+  [ ] .env tem permissao 640 ou 600
+  [ ] HTTPS esta habilitado no dominio
+  [ ] Arquivo info.php (se criado) foi removido
+  [ ] Pastas de sistema (app/, config/, routes/, views/,
+      bootstrap/, database/) nao sao acessiveis diretamente
+      pelo navegador (protegidas por .htaccess)
+  [ ] Painel de debug/phpinfo esta desabilitado em producao
+  [ ] Logs de erro do PHP estao configurados para nao
+      expor informacoes sensiveis ao usuario
+
+
+============================================================
+12. SOLUCAO DE PROBLEMAS COMUNS
+============================================================
+
+ERRO 500 - Internal Server Error
+  Causa: Erro de PHP ou permissoes incorretas
+  Solucao:
+    - Verifique o log de erros da hospedagem
+    - Verifique se o .env existe e esta preenchido
+    - Verifique permissoes dos arquivos (644) e
+      pastas (755)
+
+ERRO 404 em todas as paginas
+  Causa: mod_rewrite desabilitado ou .htaccess errado
+  Solucao:
+    - Verifique se o mod_rewrite esta ativo
+    - Verifique os arquivos .htaccess na raiz e em public/
+
+Pagina em branco
+  Causa: Erro de PHP silenciado
+  Solucao:
+    - No .env, defina APP_DEBUG=1 temporariamente
+    - Ou adicione no topo de public/index.php:
+      error_reporting(E_ALL);
+      ini_set('display_errors', '1');
+    - Verifique o log de erros
+
+Erro "Class not found" (PHPMailer)
+  Causa: Composer nao executado
+  Solucao:
+    - Execute "composer install" no servidor
+    - Ou faca upload da pasta vendor/ completa
+
+Erro de conexao com banco
+  Causa: Credenciais incorretas no .env
+  Solucao:
+    - Verifique DB_HOST, DB_NAME, DB_USER, DB_PASS
+    - Confirme no painel da hospedagem se o banco
+      foi criado e o usuario tem acesso
+
+Imagens nao aparecem
+  Causa: Pasta uploads/ sem permissao de escrita
+  Solucao:
+    - Defina permissao 775 ou 755 em public/uploads/
+    - Verifique se a pasta .gitkeep existe (ou crie)
+
+Sessao nao mantem login
+  Causa: Cookies nao funcionam ou HTTPS nao configurado
+  Solucao:
+    - Verifique se HTTPS esta ativo
+    - Verifique se o navegador aceita cookies
+
+WhatsApp nao abre
+  Causa: Numero invalido no .env
+  Solucao:
+    - Verifique WHATSAPP_FALLBACK no .env
+    - Formato: CodigoPais + DDD + Numero (sem espacos)
+    - Ex: 5511999999999
+
+Email nao envia
+  Causa: SMTP nao configurado ou credenciais invalidas
+  Solucao:
+    - Verifique MAIL_HOST, MAIL_PORT, MAIL_USERNAME,
+      MAIL_PASSWORD no .env
+    - Teste com um servidor SMTP conhecido (ex: Gmail)
+    - Verifique se a porta 465 ou 587 nao esta bloqueada
+
+URLs com index.php aparecendo
+  Causa: Rewrite nao funciona
+  Solucao:
+    - Verifique os .htaccess
+    - Verifique se AllowOverride esta habilitado no
+      httpd.conf do servidor
+
+============================================================
+  FIM DO GUIA
+  Duvidas? Consulte o README.md ou DOCUMENTACAO-TECNICA.md
+============================================================

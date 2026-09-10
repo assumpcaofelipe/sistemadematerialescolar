@@ -1,0 +1,10 @@
+/vendor/
+/.env
+acessos.txt
+/*.csv
+/public/uploads/*
+!/public/uploads/.gitkeep
+*.log
+.DS_Store
+Thumbs.db
+prompt-central-pedidos-escolares.md
