@@ -47,6 +47,7 @@ class UsuarioController extends Controller
         $this->view('admin/usuarios/form_admin', [
             'senhaGerada' => $this->gerarSenha(),
             'usuarios'    => (new Usuario())->allSistema(),
+            'url'         => '/admin/usuarios/admin/salvar',
         ]);
     }
 
@@ -100,9 +101,74 @@ class UsuarioController extends Controller
             $this->redirect('/admin/usuarios');
         }
 
-        (new Usuario())->delete($id);
-        $this->flash('success', 'Usuário excluído.');
+        try {
+            (new Usuario())->delete($id);
+            $this->flash('success', 'Escola excluída.');
+        } catch (\PDOException $e) {
+            $this->flash('error', 'Não foi possível excluir: esta escola possui pedidos vinculados.');
+        }
         $this->redirect('/admin/usuarios');
+    }
+
+    public function editAdmin(int $id): void
+    {
+        $usuario = (new Usuario())->find($id);
+
+        if (!$usuario || !in_array($usuario['tipo'], [Auth::TIPO_ADMIN, Auth::TIPO_SUPERVISOR], true)) {
+            $this->flash('error', 'Usuário não encontrado.');
+            $this->redirect('/admin/usuarios/admin/novo');
+        }
+
+        $this->view('admin/usuarios/form_admin', [
+            'usuario'    => $usuario,
+            'senhaGerada' => $this->gerarSenha(),
+            'url'        => '/admin/usuarios/admin/atualizar/' . (int) $usuario['id'],
+            'usuarios'   => (new Usuario())->allSistema(),
+        ]);
+    }
+
+    public function updateAdmin(int $id): void
+    {
+        if (!Csrf::validate()) {
+            $this->flash('error', 'Sessão expirada. Tente novamente.');
+            $this->redirect('/admin/usuarios/admin/novo');
+        }
+
+        $dados = $this->dadosAdminDoFormulario();
+        $dados['id'] = $id;
+        $this->salvarAdmin($dados);
+    }
+
+    public function destroyAdmin(int $id): void
+    {
+        if (!Csrf::validate()) {
+            $this->flash('error', 'Sessão expirada.');
+            $this->redirect('/admin/usuarios/admin/novo');
+        }
+
+        if ($id === Auth::id()) {
+            $this->flash('error', 'Você não pode excluir o próprio usuário.');
+            $this->redirect('/admin/usuarios/admin/novo');
+        }
+
+        $usuario = (new Usuario())->find($id);
+        if (!$usuario || !in_array($usuario['tipo'], [Auth::TIPO_ADMIN, Auth::TIPO_SUPERVISOR], true)) {
+            $this->flash('error', 'Usuário não encontrado.');
+            $this->redirect('/admin/usuarios/admin/novo');
+        }
+
+        if ($usuario['tipo'] === Auth::TIPO_ADMIN && (new Usuario())->countByTipo(Auth::TIPO_ADMIN) <= 1) {
+            $this->flash('error', 'Não é possível excluir: é necessário manter ao menos um administrador.');
+            $this->redirect('/admin/usuarios/admin/novo');
+        }
+
+        try {
+            (new Usuario())->delete($id);
+            $this->flash('success', 'Usuário do sistema excluído.');
+        } catch (\PDOException $e) {
+            $this->flash('error', 'Não foi possível excluir este usuário no momento.');
+        }
+        $this->redirect('/admin/usuarios/admin/novo');
     }
 
     private function dadosDoFormulario(): array
@@ -184,19 +250,72 @@ class UsuarioController extends Controller
             $this->redirect('/admin/usuarios/admin/novo');
         }
 
-        if (Usuario::findByEmail($dados['email'])) {
+        $existente = Usuario::findByEmail($dados['email']);
+
+        if (!isset($dados['id'])) {
+            if ($existente) {
+                $this->flash('error', 'Já existe um usuário com este e-mail.');
+                $this->redirect('/admin/usuarios/admin/novo');
+            }
+
+            if (mb_strlen($dados['senha']) < 4) {
+                $this->flash('error', 'Informe uma senha com pelo menos 4 caracteres.');
+                $this->redirect('/admin/usuarios/admin/novo');
+            }
+
+            $dados['senha'] = password_hash($dados['senha'], PASSWORD_DEFAULT);
+            $dados['nome_escola'] = null;
+            (new Usuario())->create($dados);
+            $this->flash('success', 'Usuário do sistema cadastrado.');
+            $this->redirect('/admin/usuarios/admin/novo');
+        }
+
+        $atual = (new Usuario())->find((int) $dados['id']);
+        if (!$atual || !in_array($atual['tipo'], [Auth::TIPO_ADMIN, Auth::TIPO_SUPERVISOR], true)) {
+            $this->flash('error', 'Usuário não encontrado.');
+            $this->redirect('/admin/usuarios/admin/novo');
+        }
+
+        if ($existente && (int) $existente['id'] !== (int) $dados['id']) {
             $this->flash('error', 'Já existe um usuário com este e-mail.');
-            $this->redirect('/admin/usuarios/admin/novo');
+            $this->redirect('/admin/usuarios/admin/editar/' . (int) $dados['id']);
         }
 
-        if (mb_strlen($dados['senha']) < 4) {
-            $this->flash('error', 'Informe uma senha com pelo menos 4 caracteres.');
-            $this->redirect('/admin/usuarios/admin/novo');
+        // Impede rebaixar/deixar sem admin ativo o último administrador existente.
+        $seraAtivo = ($dados['status'] === 1);
+        $demovendoUltimoAdmin = $atual['tipo'] === Auth::TIPO_ADMIN
+            && $dados['tipo'] !== Auth::TIPO_ADMIN
+            && (new Usuario())->countByTipo(Auth::TIPO_ADMIN) <= 1;
+        $desativandoUltimoAdmin = $atual['tipo'] === Auth::TIPO_ADMIN
+            && $dados['tipo'] === Auth::TIPO_ADMIN
+            && !$seraAtivo
+            && (new Usuario())->countByTipo(Auth::TIPO_ADMIN) <= 1;
+
+        if ($demovendoUltimoAdmin || $desativandoUltimoAdmin) {
+            $this->flash('error', 'Não é possível alterar: é necessário manter ao menos um administrador ativo.');
+            $this->redirect('/admin/usuarios/admin/editar/' . (int) $dados['id']);
         }
 
-        $dados['senha'] = password_hash($dados['senha'], PASSWORD_DEFAULT);
-        (new Usuario())->create($dados);
-        $this->flash('success', 'Usuário do sistema cadastrado.');
+        if ($dados['senha'] !== '') {
+            if (mb_strlen($dados['senha']) < 4) {
+                $this->flash('error', 'Informe uma senha com pelo menos 4 caracteres.');
+                $this->redirect('/admin/usuarios/admin/editar/' . (int) $dados['id']);
+            }
+            $dados['senha'] = password_hash($dados['senha'], PASSWORD_DEFAULT);
+        }
+
+        $dados['nome_escola'] = null;
+        (new Usuario())->update((int) $dados['id'], $dados);
+
+        // Se alterou a própria função, encerra a sessão para aplicar o novo perfil.
+        if ((int) $dados['id'] === Auth::id() && $dados['tipo'] !== $atual['tipo']) {
+            Auth::logout();
+            $this->flash('success', 'Perfil atualizado. Entre com a nova função.');
+            $this->redirect('/admin/login');
+            return;
+        }
+
+        $this->flash('success', 'Usuário do sistema atualizado.');
         $this->redirect('/admin/usuarios/admin/novo');
     }
 

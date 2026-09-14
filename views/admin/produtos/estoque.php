@@ -2,6 +2,10 @@
 
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
     <h2 class="h4 mb-0"><?= icon('alert-triangle', '20', '20', 'me-1') ?>Estoque <span class="text-muted fs-6">(<?= $total ?>)</span></h2>
+    <div class="d-flex gap-2">
+        <a href="/admin/estoque/importar" class="btn btn-outline-success btn-sm">Importar CSV</a>
+        <a href="/admin/estoque/exportar" class="btn btn-outline-secondary btn-sm">Exportar CSV</a>
+    </div>
 </div>
 
 <form method="get" action="/admin/estoque" class="row g-2 mb-3">

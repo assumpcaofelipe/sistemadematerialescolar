@@ -42,11 +42,14 @@ return [
         '/admin/produtos/novo' => [ProdutoController::class, 'create'],
         '/admin/produtos/editar/{id}' => [ProdutoController::class, 'edit'],
         '/admin/estoque'       => [ProdutoController::class, 'estoque'],
+        '/admin/estoque/exportar' => [ProdutoController::class, 'estoqueExportar'],
+        '/admin/estoque/importar' => [ProdutoController::class, 'estoqueImportForm'],
 
         '/admin/usuarios'      => [UsuarioController::class, 'index'],
         '/admin/usuarios/novo' => [UsuarioController::class, 'create'],
         '/admin/usuarios/editar/{id}' => [UsuarioController::class, 'edit'],
         '/admin/usuarios/admin/novo' => [UsuarioController::class, 'createAdmin'],
+        '/admin/usuarios/admin/editar/{id}' => [UsuarioController::class, 'editAdmin'],
 
         '/admin/configuracoes' => [ConfiguracaoController::class, 'index'],
     ],
@@ -73,11 +76,14 @@ return [
         '/admin/produtos/atualizar/{id}' => [ProdutoController::class, 'update'],
         '/admin/produtos/excluir/{id}' => [ProdutoController::class, 'destroy'],
         '/admin/produtos/estoque/{id}' => [ProdutoController::class, 'ajustarEstoque'],
+        '/admin/estoque/importar' => [ProdutoController::class, 'estoqueImportar'],
 
         '/admin/usuarios/salvar' => [UsuarioController::class, 'store'],
         '/admin/usuarios/atualizar/{id}' => [UsuarioController::class, 'update'],
         '/admin/usuarios/excluir/{id}' => [UsuarioController::class, 'destroy'],
         '/admin/usuarios/admin/salvar' => [UsuarioController::class, 'storeAdmin'],
+        '/admin/usuarios/admin/atualizar/{id}' => [UsuarioController::class, 'updateAdmin'],
+        '/admin/usuarios/admin/excluir/{id}' => [UsuarioController::class, 'destroyAdmin'],
 
         '/admin/configuracoes' => [ConfiguracaoController::class, 'update'],
     ],

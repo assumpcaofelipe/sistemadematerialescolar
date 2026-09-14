@@ -161,9 +161,14 @@ A assinatura é: `$router->get('/caminho', Classe::class, 'metodo')` e `$router-
 | `/admin/produtos/excluir/{id}` | POST | `Admin\ProdutoController::destroy` | painel + CSRF |
 | `/admin/produtos/estoque/{id}` | POST | `Admin\ProdutoController::ajustarEstoque` (JSON) | painel + CSRF |
 | `/admin/estoque` | GET (`?busca`, `?categoria`, `?situacao`) | `Admin\ProdutoController::estoque` | painel |
+| `/admin/estoque/exportar` | GET (baixa CSV) | `Admin\ProdutoController::estoqueExportar` | painel |
+| `/admin/estoque/importar` | GET/POST (upload CSV) | `Admin\ProdutoController::estoqueImportForm/estoqueImportar` | painel + CSRF |
 | `/admin/categorias` | GET/POST | `Admin\CategoriaController` | painel + CSRF |
 | `/admin/usuarios` | GET/POST | `Admin\UsuarioController` | **admin** + CSRF |
+| `/admin/usuarios/novo` `editar/{id}` `excluir/{id}` | GET/POST | `Admin\UsuarioController::create/edit/destroy` — escolas | **admin** + CSRF |
 | `/admin/usuarios/admin/novo` | GET/POST | `Admin\UsuarioController::createAdmin/storeAdmin` | **admin** + CSRF |
+| `/admin/usuarios/admin/editar/{id}` | GET/POST | `Admin\UsuarioController::editAdmin/updateAdmin` (pode trocar tipo/status) | **admin** + CSRF |
+| `/admin/usuarios/admin/excluir/{id}` | POST | `Admin\UsuarioController::destroyAdmin` (permissões: não exclui a si, mantém ≥1 admin) | **admin** + CSRF |
 | `/admin/configuracoes` | GET/POST | `Admin\ConfiguracaoController::index/update` | painel + CSRF |
 
 **Papéis ("Proteção"):** `escola` = contas de escola; `painel` = **admin ou supervisor** (`Auth::requireAcessoAdmin()`); **admin** = somente administrador (`Auth::requireAdmin()`) — aplicado ao módulo de usuários e escolas. A sidebar oculta "Escolas"/"Configurações" para supervisores.
@@ -207,6 +212,13 @@ O `Router::dispatch` suporta dois placeholders: `{id}` e `{numero}` (padrão `([
 - Verificadores: `isEscola()`, `isAdmin()`, `isSupervisor()`, `isAdminArea()` (admin **ou** supervisor);
 - Guards: `requireEscola()`, `requireAdmin()` (admin estrito), `requireAcessoAdmin()` (admin ou supervisor) — redirecionam para o login se não autenticado com o papel exigido;
 - No login: `session_regenerate_id(true)`.
+
+### Gestão de usuários do sistema (`Admin\UsuarioController`)
+- **`editAdmin($id)` / `updateAdmin($id)`**: edição de admin/supervisor com o formulário `form_admin.php`. O `update` do model suporta a coluna `tipo` — é possível **mudar a função** do usuário (admin ↔ supervisor) e ativar/desativar (`status`).
+  - Se o usuário alterar a **própria função**, `updateAdmin` encerra a sessão (`Auth::logout()`) e pede login com o novo papel;
+  - Proteções: impede rebaixar/desativar o **último administrador ativo** (regra `countByTipo(TIPO_ADMIN) <= 1`).
+- **`destroyAdmin($id)`**: exclui admin/supervisor com as mesmas proteções — não exclui a si mesmo (`$id === Auth::id()`), exige ≥1 admin restante, valida que o usuário é realmente do painel.
+- Lista de usuários do sistema renderizada na própria tela `form_admin.php` (tabela com Função, Status e ações Editar/Excluir).
 
 ### `app/Core/Csrf.php`
 - Gera e valida token de 64 hex;
@@ -269,6 +281,20 @@ O controller em caso de `null` usa `flash('pedido_erro', ...)` e mostra a revis�
 
 > O acompanhamento de **estoque baixo/zerado** não fica no dashboard: está na página própria `/admin/estoque` (`Produto::paginarEstoque()`, filtros busca/categoria/situação, ajuste rápido via AJAX confirmado em modal — `LIMITE_BAIXO_ESTOQUE = 5`).
 
+### Importação e exportação de estoque via CSV (`/admin/estoque/im... exportar`)
+
+- **Exportar** (`ProdutoController::estoqueExportar`): baixa `estoque_YYYY-MM-DD.csv` com **BOM UTF-8** e separador `;`, exatamente 3 colunas:
+  `Produto;Categoria;Estoque`
+  - Usa `fputcsv(..., ';', '"', '')` — o 4º/5º argumento (`enclosure` e `escape`) são passados explicitamente para silenciar o deprecation do `fputcsv` no PHP 8.4.
+- **Importar** (`produtoController::estoqueImportar`):
+  - Aceita `.csv`/`.txt` (`multipart/form-data`, campo `arquivo`);
+  - Auto-detecta separador (`;` ou `,`) a partir da primeira linha e **pula o cabeçalho** se a 1ª coluna for `produto`/`nome`/etc.;
+  - Localiza o produto por **nome + categoria** (`Produto::findByNomeCategoria` — `LOWER()` em ambos, categoria igual, nome case-insensitive). Não usa ID: o arquivo é editável no Excel;
+  - Validações por linha: colunas suficientes, nome não vazio, estoque ≥ 0, produto encontrado — erros acumulados em `$erros` (flash mostra até 5 exemplos);
+  - Opção **`substituir=1`** (checkbox "Zerar estoque dos produtos que não estiverem no arquivo") chama `Produto::zerarEstoqueExceto($idsAtualizados)`;
+  - Flash de sucesso e de erro são exibidos **em conjunto** (POST parcial retorna ambos).
+- View de referência: `views/admin/produtos/estoque_importar.php` (exemplo do formato + dica de exportar antes).
+
 > Compatibilidade PHP 8.3: o projeto NÃO usa `mb_str_contains` (inexistente) — usar `str_contains`. Dados dos gráficos são sempre escapados/convertidos para int no PHP antes do `json_encode`.
 
 ---
@@ -281,9 +307,11 @@ O controller em caso de `null` usa `flash('pedido_erro', ...)` e mostra a revis�
 | XSS | `e()` (htmlspecialchars) em toda saída dinâmica nas views |
 | CSRF | `csrf_field()` nos forms + endpoints AJAX validam token; admin valida no construtor |
 | Sessão | cookie `httponly` + `samesite=Lax`; `session_regenerate_id` no login |
-| Upload | validação de mime (imagem), extensão permitida e tamanho ≤ 2MB; nome gerado com `uniqid` |
+| Upload | validação de mime (imagem), extensão permitida e tamanho ≤ 2MB; nome gerado com `random_bytes` (hex de 16 chars) |
 | Traversal | upload salvo em `public/uploads` com nome aleatório |
 | Brute force | sem bloqueio dedicado (melhoria futura) — senha bcrypt |
+| Cache / PWA | `Cache-Control: no-store, no-cache, must-revalidate, max-age=0` e `Pragma: no-cache` definidos no `public/index.php` para todas as respostas HTML; service worker (`central-pedidos-v3`) **não armazena HTML** — apenas assets estáticos (CSS/JS/ícones), com purge automático de versões antigas. Garante que dados sensíveis não fiquem no cache do navegador. |
+| CSV import/export | aceita apenas `.csv`/`.txt` (validação de extensão); parser aceita separador `;` ou `,` (auto-detecta); erros de linha reportados com número; não há upload de imagem neste fluxo. |
 
 ---
 
@@ -356,21 +384,26 @@ Os footers (`admin_footer.php`/`escola_footer.php`) incluem `layouts/alertas.php
 ## 13. PWA
 
 - `public/manifest.json` — nome, ícones, tema, standalone;
-- `public/service-worker.js` — cache estático (shell) de assets CSS/JS;
+- `public/service-worker.js` — cache **v3** (`central-pedidos-v3`): somente assets estáticos (CSS/JS); **páginas HTML nunca são gravadas em cache** (sempre rede, cache apenas como fallback offline) — somado aos headers `Cache-Control: no-store` do `public/index.php`;
 - Registro é feito no `escola_footer.php` (somente onde o PWA faz sentido — área da escola);
+- Ao subir versões que mudem HTML/CSS/JS, **bump na constante `CACHE`** do service worker para forçar purge do cache antigo no cliente;
 - Instalação exige HTTPS (ou localhost);
 
 ## 14. Testes
 
-Não há framework de testes. Existem scripts temporários de validação HTTP via cURL (`teste_fluxo.php`, `teste_admin.php`) fora do projeto, em
-`C:\Users\Felipe\AppData\Local\Temp\opencode\`. Eles exercitam: login → catálogo (busca/filtro/paginação) → carrinho → revisão → confirmação → sucesso/#/wa.me; e o painel admin completo.
+Não há framework de testes automatizados no projeto. A validação de ponta a ponta é feita por scripts manuais em PowerShell/curl (no diretório `C:\Users\Felipe\AppData\Local\Temp\opencode\`), que exercitam no servidor real:
+
+- **Fluxo escola** (`teste_escola.ps1`): login → catálogo (busca/filtro/paginação) → adicionar/atualizar/remover carrinho (validações de estoque, produto inexistente, CSRF) → revisão → confirmar → sucesso → histórico → detalhe → logout;
+- **Fluxo admin** (`teste_admin*.ps1`): login → dashboard (gráficos) → pedidos (status, excluir com restauro de estoque) → categorias/produtos/usuários (CRUD completo) → estoque (ajuste, exportar CSV, importar CSV) → configurações → proteção de rotas por papel → CSRF inválido (419) → 404 → logout.
+
+Cada execução cria um usuário temporário (admin + escola), testa e **remove tudo no final**, restaurando estoques alterados.
 
 ---
 
 ## 15. Melhorias futuras (roadmap)
 
 - Restauração de estoque ao **cancelar** pedido (a exclusão de pedido já restaura);
-- Impressão/exportação (PDF/CSV) dos pedidos;
+- Impressão/exportação (PDF) dos pedidos;
 - Notificação push via PWA;
 - Categorias com subcategorias;
 - Rate limiting/brute-force protection no login.

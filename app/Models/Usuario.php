@@ -79,9 +79,15 @@ class Usuario
             $values[] = $data['senha'];
         }
 
+        $tipoSql = '';
+        if (isset($data['tipo'])) {
+            $tipoSql = ', tipo = ?';
+            $values[] = $data['tipo'];
+        }
+
         $stmt = $this->db->prepare(
             'UPDATE usuarios
-             SET nome = ?, email = ?, nome_escola = ?, status = ?' . $senhaSql . '
+             SET nome = ?, email = ?, nome_escola = ?, status = ?' . $senhaSql . $tipoSql . '
              WHERE id = ?'
         );
         $values = array_merge([

@@ -96,6 +96,128 @@ class ProdutoController extends Controller
         ]);
     }
 
+    public function estoqueExportar(): void
+    {
+        $produtos = (new Produto())->all();
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="estoque_' . date('Y-m-d') . '.csv"');
+
+        $output = fopen('php://output', 'w');
+        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+        fputcsv($output, ['Produto', 'Categoria', 'Estoque'], ';', '"', '');
+
+        foreach ($produtos as $p) {
+            fputcsv($output, [
+                $p['nome'],
+                $p['categoria_nome'],
+                $p['quantidade_estoque'],
+            ], ';', '"', '');
+        }
+
+        fclose($output);
+        exit;
+    }
+
+    public function estoqueImportForm(): void
+    {
+        $this->view('admin/produtos/estoque_importar', [
+            'categorias' => (new Categoria())->all(),
+        ]);
+    }
+
+    public function estoqueImportar(): void
+    {
+        if (!Csrf::validate()) {
+            $this->flash('error', 'Sessão expirada. Tente novamente.');
+            $this->redirect('/admin/estoque/importar');
+        }
+
+        if (empty($_FILES['arquivo']) || $_FILES['arquivo']['error'] !== UPLOAD_ERR_OK) {
+            $this->flash('error', 'Selecione um arquivo CSV.');
+            $this->redirect('/admin/estoque/importar');
+        }
+
+        $ext = strtolower(pathinfo($_FILES['arquivo']['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, ['csv', 'txt'], true)) {
+            $this->flash('error', 'Formato inválido. Envie um arquivo .csv ou .txt');
+            $this->redirect('/admin/estoque/importar');
+        }
+
+        $handle = fopen($_FILES['arquivo']['tmp_name'], 'r');
+        if (!$handle) {
+            $this->flash('error', 'Não foi possível ler o arquivo.');
+            $this->redirect('/admin/estoque/importar');
+        }
+
+        $firstLine = fgets($handle);
+        $delim = str_contains($firstLine, ';') ? ';' : ',';
+        rewind($handle);
+
+        // Pula linha de cabeçalho se parecer ser header
+        $headers = fgetcsv($handle, 0, $delim);
+        $cabecalhoValido = $headers !== false
+            && in_array(strtolower(trim($headers[0])), ['produto', 'nome', 'produto_nome', 'nome_produto'], true);
+
+        $atualizados = 0;
+        $erros = [];
+        $nomesAtualizados = [];
+        $model = new Produto();
+        $linha = 1;
+
+        while (($row = fgetcsv($handle, 0, $delim)) !== false) {
+            $linha++;
+            if (count($row) < 2) {
+                $erros[] = "Linha {$linha}: colunas insuficientes.";
+                continue;
+            }
+
+            $nomeProduto = trim((string) $row[0]);
+            $nomeCategoria = trim((string) $row[1]);
+            $estoque = (int) $row[2];
+
+            if ($nomeProduto === '') {
+                $erros[] = "Linha {$linha}: nome do produto vazio.";
+                continue;
+            }
+            if ($estoque < 0) {
+                $erros[] = "Linha {$linha}: estoque não pode ser negativo.";
+                continue;
+            }
+
+            $produto = $model->findByNomeCategoria($nomeProduto, $nomeCategoria);
+            if (!$produto) {
+                $erros[] = "Linha {$linha}: produto \"{$nomeProduto}\" não encontrado.";
+                continue;
+            }
+
+            $model->ajustarEstoque((int) $produto['id'], $estoque);
+            $atualizados++;
+            $nomesAtualizados[] = (int) $produto['id'];
+        }
+
+        fclose($handle);
+
+        // "Substituir" = zera estoque dos produtos que não vieram no arquivo.
+        $zerados = 0;
+        if (isset($_POST['substituir']) && $_POST['substituir'] === '1' && !empty($nomesAtualizados)) {
+            $zerados = (new Produto())->zerarEstoqueExceto($nomesAtualizados);
+        }
+
+        if ($atualizados > 0 || $zerados > 0) {
+            $msg = "{$atualizados} produto(s) atualizado(s)";
+            if ($zerados > 0) {
+                $msg .= " e {$zerados} zerado(s)";
+            }
+            $this->flash('success', $msg . '.');
+        }
+        if ($erros) {
+            $this->flash('error', count($erros) . ' linha(s) com erro: ' . implode(' | ', array_slice($erros, 0, 5)));
+        }
+        $this->redirect('/admin/estoque');
+    }
+
     public function store(): void
     {
         if (!Csrf::validate()) {

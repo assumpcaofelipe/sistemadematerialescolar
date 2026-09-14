@@ -142,6 +142,24 @@ class Produto
         return $stmt->fetch() ?: null;
     }
 
+    /**
+     * Busca produto por nome + categoria. Usado na importação de CSV.
+     * Faz busca case-insensitive por nome e categoria (exatamente igual).
+     */
+    public function findByNomeCategoria(string $nome, string $categoria): ?array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT p.*, c.nome AS categoria_nome
+             FROM produtos p
+             INNER JOIN categorias c ON c.id = p.categoria_id
+             WHERE LOWER(p.nome) = LOWER(?)
+               AND LOWER(c.nome) = LOWER(?)
+             LIMIT 1'
+        );
+        $stmt->execute([$nome, $categoria]);
+        return $stmt->fetch() ?: null;
+    }
+
     public function create(array $data): int
     {
         $stmt = $this->db->prepare(
@@ -193,6 +211,26 @@ class Produto
             'UPDATE produtos SET quantidade_estoque = ? WHERE id = ?'
         );
         return $stmt->execute([$quantidade, $id]);
+    }
+
+    /**
+     * Zera o estoque de todos os produtos, exceto os ids informados.
+     * Retorna a quantidade de linhas afetadas.
+     */
+    public function zerarEstoqueExceto(array $ids): int
+    {
+        if (empty($ids)) {
+            $stmt = $this->db->prepare('UPDATE produtos SET quantidade_estoque = 0');
+            $stmt->execute();
+            return $stmt->rowCount();
+        }
+
+        $marcadores = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $this->db->prepare(
+            "UPDATE produtos SET quantidade_estoque = 0 WHERE id NOT IN ({$marcadores})"
+        );
+        $stmt->execute($ids);
+        return $stmt->rowCount();
     }
 
     public function debitarEstoque(int $id, int $quantidade): bool

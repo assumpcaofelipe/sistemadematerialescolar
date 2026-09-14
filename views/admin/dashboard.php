@@ -114,16 +114,16 @@ include __DIR__ . '/../layouts/admin_header.php';
     <div class="col-12 col-lg-7">
         <div class="card shadow-sm h-100">
             <div class="card-header bg-white"><?= icon('package', '18', '18', 'me-1') ?>Produtos mais pedidos</div>
-            <div class="card-body">
-                <canvas id="chartProdutos" height="170"></canvas>
+            <div class="card-body" style="height: 280px;">
+                <canvas id="chartProdutos"></canvas>
             </div>
         </div>
     </div>
     <div class="col-12 col-lg-5">
         <div class="card shadow-sm h-100">
             <div class="card-header bg-white"><?= icon('school', '18', '18', 'me-1') ?>Escolas que mais pedem</div>
-            <div class="card-body">
-                <canvas id="chartEscolas" height="170"></canvas>
+            <div class="card-body" style="height: 280px;">
+                <canvas id="chartEscolas"></canvas>
             </div>
         </div>
     </div>
@@ -201,8 +201,12 @@ document.addEventListener('DOMContentLoaded', function () {
             options: {
                 indexAxis: 'y',
                 responsive: true,
+                maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
-                scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+                scales: {
+                    x: { beginAtZero: true, ticks: { precision: 0 } },
+                    y: { grid: { display: false } }
+                }
             }
         });
 
@@ -224,8 +228,12 @@ document.addEventListener('DOMContentLoaded', function () {
             options: {
                 indexAxis: 'y',
                 responsive: true,
+                maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
-                scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+                scales: {
+                    x: { beginAtZero: true, ticks: { precision: 0 } },
+                    y: { grid: { display: false } }
+                }
             }
         });
 });

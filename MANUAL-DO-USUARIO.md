@@ -68,9 +68,9 @@ Os resultados são paginados em **20 produtos por página** (navegação “Ante
 ### 2.4 Montando o pedido (carrinho)
 
 1. Informe a quantidade no cartão do produto.
-2. Clique em **Adicionar** — aparecerá a mensagem *“Produto adicionado, carrinho atualizado.”*
-3. No canto inferior da tela há o botão **🛒 Meu pedido — N itens**, sempre visível (inclusive no celular).
-4. Clique nele para abrir o carrinho.
+2. Clique em **Adicionar** — aparecerá a mensagem *“Produto adicionado, carrinho atualizado.”* e o contador **Carrinho** do menu lateral aumenta.
+3. Clique em **Carrinho** no menu lateral (o número amarelo ao lado mostra quantos itens há no pedido).
+4. Pronto: você está no carrinho.
 
 No carrinho você pode:
 - Alterar a quantidade de um item (campo + **Atualizar**);
@@ -175,7 +175,33 @@ Para mudar o status: abra o pedido, escolha o novo status e clique em **Atualiza
 
 - Lista apenas os produtos com **estoque baixo (5 ou menos) ou zerado**, com busca, filtro por categoria e filtro por situação (abaixo do limite / zerado);
 - Na própria linha é possível **corrigir o estoque** digitando o valor e clicando em **OK** — útil para reposição;
-- Cada zero recebe o destaque 🟥 **Sem estoque**.
+- Cada zero recebe o destaque 🟥 **Sem estoque**;
+- No canto superior há dois botões: **Importar CSV** e **Exportar CSV** (para atualizar estoque em massa pela planilha).
+
+**Exportar estoque (CSV):**
+1. Clique em **Exportar CSV** — o navegador baixa o arquivo `estoque_AAAA-MM-DD.csv`;
+2. Abra no Excel: as colunas são `PRODUTO;CATEGORIA;ESTOQUE` (uma linha por produto);
+3. Altere quanto precisar e **salve como CSV** (mantendo o ponto e vírgula).
+
+**Importar estoque (CSV):**
+1. Clique em **Importar CSV**;
+2. Selecione o arquivo (`.csv` ou `.txt`) com o formato exato:
+
+```text
+PRODUTO;CATEGORIA;ESTOQUE
+Lápis Escolar;Material Escolar;50
+Borracha Branca;Material Escolar;120
+Caderno 10 Matérias;papelaria;0
+```
+
+   - **PRODUTO** — nome exato como aparece no catálogo;
+   - **CATEGORIA** — nome exato da categoria do produto;
+   - **ESTOQUE** — nova quantidade, só números.
+
+3. Opcional: marque **"Zerar estoque dos produtos que não estiverem no arquivo"** para que tudo que não veio na planilha fique com estoque 0 (útil para o inventário completo do almoxarifado);
+4. Clique em **Importar**. Ao final o sistema informa quantos produtos foram atualizados e/ou zerados, e aponta linhas com erro (ex.: produto não encontrado).
+
+> Dica: **exporte a planilha primeiro**, edite a coluna ESTOQUE e reimporte — assim os nomes sempre batem com o cadastro.
 
 ### 3.4 Produtos (`/admin/produtos`)
 
@@ -199,18 +225,20 @@ Para mudar o status: abra o pedido, escolha o novo status e clique em **Atualiza
 
 ### 3.6 Escolas (`/admin/usuarios`)
 
-- O administrador cadastra as escolas: nome da escola, responsável, e-mail/login, senha, status;
-- Existe botão **Gerar** para sugerir uma senha aleatória;
-- Ao editar, a senha só é alterada se for preenchida;
-- **Status inativo** impede o login da escola;
+- O administrador cadastra as escolas: **nome da escola**, **e-mail/login** e **senha**;
+- Existe botão **Gerar** para sugerir uma senha aleatória de 8 caracteres (e a sugestão também aparece antes de salvar);
+- Ao editar, a senha só é alterada se for preenchida (deixar em branco mantém a atual);
+- A escola entra no catálogo (área da escola) e o login está disponível imediatamente após o cadastro;
 - Contas de **administrador e supervisor** não ficam nesta lista — são gerenciadas em **Usuários do sistema** (item 3.7).
 
 ### 3.7 Usuários do sistema (administradores e supervisores)
 
 Acessível pelo menu **Configurações → Usuários do sistema** *(somente administrador)*:
 
-- Lista os usuários do painel com o **tipo** (Administrador ou Supervisor);
+- Lista os usuários do painel com o **tipo** (Administrador ou Supervisor) e o status;
 - **Adicionar usuário do sistema**: informe nome, e-mail, senha e escolha o tipo (Administrador ou Supervisor);
+- **Editar**: além de nome/e-mail/senha, é possível **trocar a função** do usuário (Administrador ↔ Supervisor) e ativar/desativar o acesso. Se você mudar a **sua própria função**, o sistema encerra a sessão e você entrará novamente com o novo perfil;
+- **Excluir**: remove o usuário do painel. Proteções do sistema: você **não pode excluir a si mesmo**, e o sistema **não permite excluir ou desativar o último administrador** (sempre precisa sobrar pelo menos um administrador ativo);
 - O **Supervisor** recebe acesso ao painel (pedidos, produtos, estoque, categorias e configurações), mas **não** ao módulo de usuários/escolas;
 - Recomenda-se manter **poucos usuários do tipo administrador**; para o dia a dia, crie supervisores.
 
