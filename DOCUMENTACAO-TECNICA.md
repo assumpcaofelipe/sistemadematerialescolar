@@ -288,9 +288,12 @@ O controller em caso de `null` usa `flash('pedido_erro', ...)` e mostra a revis�
   - Usa `fputcsv(..., ';', '"', '')` — o 4º/5º argumento (`enclosure` e `escape`) são passados explicitamente para silenciar o deprecation do `fputcsv` no PHP 8.4.
 - **Importar** (`produtoController::estoqueImportar`):
   - Aceita `.csv`/`.txt` (`multipart/form-data`, campo `arquivo`);
-  - Auto-detecta separador (`;` ou `,`) a partir da primeira linha e **pula o cabeçalho** se a 1ª coluna for `produto`/`nome`/etc.;
-  - Localiza o produto por **nome + categoria** (`Produto::findByNomeCategoria` — `LOWER()` em ambos, categoria igual, nome case-insensitive). Não usa ID: o arquivo é editável no Excel;
-  - Validações por linha: colunas suficientes, nome não vazio, estoque ≥ 0, produto encontrado — erros acumulados em `$erros` (flash mostra até 5 exemplos);
+  - Conteúdo normalizado para UTF-8 (arquivos ANSI/Windows-1252 gerados pelo Excel Windows são convertidos, BOM removido);
+  - Auto-detecta separador (`;` ou `,` preferindo `;`) na amostra inicial;
+  - **Cabeçalho flexível**: se a 1ª linha for cabeçalho reconhecível (`produto`, `nome`, `categoria`, `estoque`, etc.), as colunas são mapeadas por nome em **qualquer ordem** (`Estoque;Categoria;Produto` funciona); sem cabeçalho, assume `Produto;Categoria;Estoque`;
+  - Linhas totalmente vazias são ignoradas;
+  - Localiza o produto por `Produto::buscarParaImportacao` — comparação **leniente**: ignora caixa, acentos e espaços (helper `normalizar_texto`, `strtr` + `mb_strtolower` + `preg_replace('/\s+/u',' ')`). Match por **nome+categoria**; se o nome for único aceita mesmo com categoria divergente (anotado no flash de sucesso); se o nome for ambíguo exige categoria correta. Usa cache estático do catálogo por request (`buscarParaImportacao`);
+  - Validações por linha: nome não vazio, quantidade informada e ≥ 0, produto encontrado/único — erros acumulados em `$erros` com número da linha e motivo (flash mostra até 5 exemplos + contagem total);
   - Opção **`substituir=1`** (checkbox "Zerar estoque dos produtos que não estiverem no arquivo") chama `Produto::zerarEstoqueExceto($idsAtualizados)`;
   - Flash de sucesso e de erro são exibidos **em conjunto** (POST parcial retorna ambos).
 - View de referência: `views/admin/produtos/estoque_importar.php` (exemplo do formato + dica de exportar antes).
@@ -311,7 +314,7 @@ O controller em caso de `null` usa `flash('pedido_erro', ...)` e mostra a revis�
 | Traversal | upload salvo em `public/uploads` com nome aleatório |
 | Brute force | sem bloqueio dedicado (melhoria futura) — senha bcrypt |
 | Cache / PWA | `Cache-Control: no-store, no-cache, must-revalidate, max-age=0` e `Pragma: no-cache` definidos no `public/index.php` para todas as respostas HTML; service worker (`central-pedidos-v3`) **não armazena HTML** — apenas assets estáticos (CSS/JS/ícones), com purge automático de versões antigas. Garante que dados sensíveis não fiquem no cache do navegador. |
-| CSV import/export | aceita apenas `.csv`/`.txt` (validação de extensão); parser aceita separador `;` ou `,` (auto-detecta); erros de linha reportados com número; não há upload de imagem neste fluxo. |
+| CSV import/export | aceita apenas `.csv`/`.txt` (validação de extensão); parser aceita separador `;` ou `,` (auto-detecta); encoding convertido de Windows-1252/ISO-8859-1 para UTF-8 automaticamente; mapeamento de colunas por cabeçalho flexível; match de produtos tolerante a caixa/acentos/espaços (`normalizar_texto`); erros de linha reportados com número e motivo; não há upload de imagem neste fluxo. |
 
 ---
 

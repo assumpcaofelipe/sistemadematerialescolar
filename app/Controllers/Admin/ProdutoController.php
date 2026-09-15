@@ -145,62 +145,109 @@ class ProdutoController extends Controller
             $this->redirect('/admin/estoque/importar');
         }
 
-        $handle = fopen($_FILES['arquivo']['tmp_name'], 'r');
-        if (!$handle) {
-            $this->flash('error', 'Não foi possível ler o arquivo.');
+        $conteudo = file_get_contents($_FILES['arquivo']['tmp_name']);
+        if ($conteudo === false || trim($conteudo) === '') {
+            $this->flash('error', 'O arquivo está vazio.');
             $this->redirect('/admin/estoque/importar');
         }
 
-        $firstLine = fgets($handle);
-        $delim = str_contains($firstLine, ';') ? ';' : ',';
+        $conteudo = $this->normalizarEncodingArquivo($conteudo);
+        $handle = fopen('php://memory', 'r+');
+        fwrite($handle, $conteudo);
         rewind($handle);
 
-        // Pula linha de cabeçalho se parecer ser header
-        $headers = fgetcsv($handle, 0, $delim);
-        $cabecalhoValido = $headers !== false
-            && in_array(strtolower(trim($headers[0])), ['produto', 'nome', 'produto_nome', 'nome_produto'], true);
+        // Delimitador: conta ';' vs ',' na amostra inicial (vírgula pode
+        // aparecer dentro de nomes mesmo em arquivo ';', por isso prefere ';')
+        $amostra = substr($conteudo, 0, 8192);
+        $delim = substr_count($amostra, ';') >= substr_count($amostra, ',') ? ';' : ',';
 
+        $primeiraLinha = fgetcsv($handle, 0, $delim);
         $atualizados = 0;
+        $zerados = 0;
         $erros = [];
         $nomesAtualizados = [];
+        $categoriasAjustadas = [];
         $model = new Produto();
         $linha = 1;
 
+        // Mapeia colunas pela ordem padrão Produto;Categoria;Estoque
+        $idxProduto = 0;
+        $idxCategoria = 1;
+        $idxEstoque = 2;
+
+        if ($primeiraLinha !== false && $this->linhaEhCabecalho($primeiraLinha)) {
+            $indices = $this->indicesDoCabecalho($primeiraLinha);
+            $idxProduto = $indices['produto'];
+            $idxCategoria = $indices['categoria'];
+            $idxEstoque = $indices['estoque'];
+
+            if ($idxProduto === null || $idxEstoque === null) {
+                fclose($handle);
+                $this->flash('error', 'Cabeçalho inválido. O arquivo deve ter colunas Produto;Categoria;Estoque (em qualquer ordem).');
+                $this->redirect('/admin/estoque/importar');
+            }
+        } else {
+            // Sem cabeçalho: a primeira linha já é dado (linha 1).
+            $linha = 0;
+        }
+
+        // Recomeça a leitura a partir da linha de dados
+        rewind($handle);
+        if ($primeiraLinha !== false && $this->linhaEhCabecalho($primeiraLinha)) {
+            fgetcsv($handle, 0, $delim); // descarta cabeçalho
+        }
+
         while (($row = fgetcsv($handle, 0, $delim)) !== false) {
             $linha++;
-            if (count($row) < 2) {
-                $erros[] = "Linha {$linha}: colunas insuficientes.";
+
+            if ($this->linhaVazia($row)) {
                 continue;
             }
 
-            $nomeProduto = trim((string) $row[0]);
-            $nomeCategoria = trim((string) $row[1]);
-            $estoque = (int) $row[2];
+            $nomeProduto = trim((string) ($row[$idxProduto] ?? ''));
 
             if ($nomeProduto === '') {
                 $erros[] = "Linha {$linha}: nome do produto vazio.";
                 continue;
             }
+
+            $nomeCategoria = trim((string) ($idxCategoria !== null ? ($row[$idxCategoria] ?? '') : ''));
+            $estoqueTexto = trim((string) ($idxEstoque !== null ? ($row[$idxEstoque] ?? '') : ''));
+
+            if ($estoqueTexto === '') {
+                $erros[] = "Linha {$linha}: quantidade não informada para \"{$nomeProduto}\".";
+                continue;
+            }
+
+            $estoque = (int) preg_replace('/\s+/', '', $estoqueTexto);
             if ($estoque < 0) {
-                $erros[] = "Linha {$linha}: estoque não pode ser negativo.";
+                $erros[] = "Linha {$linha}: estoque não pode ser negativo para \"{$nomeProduto}\".";
                 continue;
             }
 
-            $produto = $model->findByNomeCategoria($nomeProduto, $nomeCategoria);
-            if (!$produto) {
-                $erros[] = "Linha {$linha}: produto \"{$nomeProduto}\" não encontrado.";
+            $resultado = $model->buscarParaImportacao($nomeProduto, $nomeCategoria);
+            if ($resultado['match'] === null) {
+                if ($resultado['motivo'] === 'nome_nao_encontrado') {
+                    $erros[] = "Linha {$linha}: produto \"{$nomeProduto}\" não encontrado no cadastro.";
+                } else {
+                    $categorias = $resultado['categorias'] ? implode(', ', $resultado['categorias']) : 'várias categorias';
+                    $erros[] = "Linha {$linha}: \"{$nomeProduto}\" é ambíguo ({$categorias}); informe a categoria \"{$nomeCategoria}\" corretamente.";
+                }
                 continue;
             }
 
+            $produto = $resultado['match'];
             $model->ajustarEstoque((int) $produto['id'], $estoque);
             $atualizados++;
             $nomesAtualizados[] = (int) $produto['id'];
+            if ($resultado['motivo'] === 'categoria_diferente') {
+                $categoriasAjustadas[] = $nomeProduto;
+            }
         }
 
         fclose($handle);
 
         // "Substituir" = zera estoque dos produtos que não vieram no arquivo.
-        $zerados = 0;
         if (isset($_POST['substituir']) && $_POST['substituir'] === '1' && !empty($nomesAtualizados)) {
             $zerados = (new Produto())->zerarEstoqueExceto($nomesAtualizados);
         }
@@ -210,12 +257,93 @@ class ProdutoController extends Controller
             if ($zerados > 0) {
                 $msg .= " e {$zerados} zerado(s)";
             }
+            if ($categoriasAjustadas) {
+                $msg .= ' — ' . count($categoriasAjustadas) . ' com categoria diferente do cadastro (aplicado pelo nome único)';
+            }
             $this->flash('success', $msg . '.');
         }
         if ($erros) {
-            $this->flash('error', count($erros) . ' linha(s) com erro: ' . implode(' | ', array_slice($erros, 0, 5)));
+            $totalErros = count($erros);
+            $trecho = implode(' | ', array_slice($erros, 0, 5));
+            if ($totalErros > 5) {
+                $trecho .= ' | ... e mais ' . ($totalErros - 5) . ' erro(s)';
+            }
+            $this->flash('error', "{$totalErros} linha(s) com erro: {$trecho}");
         }
         $this->redirect('/admin/estoque');
+    }
+
+    /**
+     * Converte o conteúdo do CSV para UTF-8 (Excel do Windows costuma
+     * gravar CSV em Windows-1252/ANSI). Remove BOM quando presente.
+     */
+    private function normalizarEncodingArquivo(string $conteudo): string
+    {
+        if (str_starts_with($conteudo, "\xEF\xBB\xBF")) {
+            $conteudo = substr($conteudo, 3);
+        }
+
+        if (preg_match('//u', $conteudo)) {
+            return $conteudo; // já é UTF-8 válido
+        }
+
+        $charset = mb_detect_encoding($conteudo, ['Windows-1252', 'ISO-8859-1'], true);
+        if (!$charset) {
+            return $conteudo;
+        }
+
+        $convertido = @iconv($charset, 'UTF-8//TRANSLIT', $conteudo);
+        return $convertido === false ? $conteudo : $convertido;
+    }
+
+    private function linhaVazia(array $row): bool
+    {
+        foreach ($row as $campo) {
+            if (trim((string) $campo) !== '') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Aceita variações de cabeçalho (ex.: "Produto;Estoque;Categoria".
+     * Se não reconhecer, o arquivo é tratado como sem cabeçalho.
+     */
+    private function linhaEhCabecalho(array $linha): bool
+    {
+        $nomes = ['produto', 'nome', 'nome do produto', 'nome do item', 'artigo', 'material', 'descricao'];
+        foreach ($linha as $campo) {
+            if (in_array(normalizar_texto((string) $campo), $nomes, true)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @return array{produto: ?int, categoria: ?int, estoque: ?int}
+     */
+    private function indicesDoCabecalho(array $linha): array
+    {
+        $nomesProduto = ['produto', 'nome', 'nome do produto', 'nome do item', 'artigo', 'material', 'descricao'];
+        $nomesCategoria = ['categoria', 'categoria do produto', 'grupo', 'departamento', 'secao'];
+        $nomesEstoque = ['estoque', 'estoque atual', 'quantidade', 'quantidade em estoque', 'qtd', 'qtd em estoque', 'saldo', 'quantidade atual'];
+
+        $indices = ['produto' => null, 'categoria' => null, 'estoque' => null];
+
+        foreach ($linha as $posicao => $campo) {
+            $campoNorm = normalizar_texto((string) $campo);
+            if ($indices['produto'] === null && in_array($campoNorm, $nomesProduto, true)) {
+                $indices['produto'] = (int) $posicao;
+            } elseif ($indices['categoria'] === null && in_array($campoNorm, $nomesCategoria, true)) {
+                $indices['categoria'] = (int) $posicao;
+            } elseif ($indices['estoque'] === null && in_array($campoNorm, $nomesEstoque, true)) {
+                $indices['estoque'] = (int) $posicao;
+            }
+        }
+
+        return $indices;
     }
 
     public function store(): void

@@ -185,7 +185,7 @@ Para mudar o status: abra o pedido, escolha o novo status e clique em **Atualiza
 
 **Importar estoque (CSV):**
 1. Clique em **Importar CSV**;
-2. Selecione o arquivo (`.csv` ou `.txt`) com o formato exato:
+2. Selecione o arquivo (`.csv` ou `.txt`). O formato padrão é `PRODUTO;CATEGORIA;ESTOQUE`:
 
 ```text
 PRODUTO;CATEGORIA;ESTOQUE
@@ -194,12 +194,14 @@ Borracha Branca;Material Escolar;120
 Caderno 10 Matérias;papelaria;0
 ```
 
-   - **PRODUTO** — nome exato como aparece no catálogo;
-   - **CATEGORIA** — nome exato da categoria do produto;
+   - **PRODUTO** — nome como aparece no catálogo;
+   - **CATEGORIA** — categoria do produto;
    - **ESTOQUE** — nova quantidade, só números.
 
+   O sistema é tolerante: aceita **colunas em outra ordem** (desde que o cabeçalho `Produto`/`Categoria`/`Estoque` exista), **cabeçalho opcional**, separador `;` ou `,`, diferenças de **maiúsculas/minúsculas, acentos e espaços** nos nomes, e até arquivos salvos pelo Excel do Windows (ANSI) — eles são convertidos automaticamente.
+
 3. Opcional: marque **"Zerar estoque dos produtos que não estiverem no arquivo"** para que tudo que não veio na planilha fique com estoque 0 (útil para o inventário completo do almoxarifado);
-4. Clique em **Importar**. Ao final o sistema informa quantos produtos foram atualizados e/ou zerados, e aponta linhas com erro (ex.: produto não encontrado).
+4. Clique em **Importar**. Ao final o sistema informa quantos produtos foram atualizados e/ou zerados, e aponta **linha por linha** os erros com o motivo (ex.: produto não encontrado no cadastro).
 
 > Dica: **exporte a planilha primeiro**, edite a coluna ESTOQUE e reimporte — assim os nomes sempre batem com o cadastro.
 
