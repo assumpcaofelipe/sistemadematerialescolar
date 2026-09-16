@@ -142,92 +142,6 @@ class Produto
         return $stmt->fetch() ?: null;
     }
 
-    /**
-     * Busca produto por nome + categoria (nomes exatos, case-insensitive).
-     * Mantido por compatibilidade; o import de CSV usa buscarParaImportacao
-     * (comparação tolerante a caixa/acentos/espaços).
-     */
-    public function findByNomeCategoria(string $nome, string $categoria): ?array
-    {
-        $stmt = $this->db->prepare(
-            'SELECT p.*, c.nome AS categoria_nome
-             FROM produtos p
-             INNER JOIN categorias c ON c.id = p.categoria_id
-             WHERE LOWER(p.nome) = LOWER(?)
-               AND LOWER(c.nome) = LOWER(?)
-             LIMIT 1'
-        );
-        $stmt->execute([$nome, $categoria]);
-        return $stmt->fetch() ?: null;
-    }
-
-    /**
-     * Busca produto para importação de estoque de forma "leniente":
-     * ignora diferenças de caixa, acentos e espaços (via normalizar_texto).
-     *
-     * Regras de desambiguação:
-     *  1. nome normalizado + categoria normalizada (match perfeito);
-     *  2. nome normalizado único, mesmo com categoria divergente;
-     *  3. nome normalizado ambíguo + categoria normalizada.
-     *
-     * @return array{match: ?array, motivo: string, categorias: array, categoria: ?string}
-     */
-    public function buscarParaImportacao(string $nome, string $categoria): array
-    {
-        static $catalogo = null;
-        if ($catalogo === null) {
-            $linhas = $this->db->query(
-                'SELECT p.id, p.nome, p.quantidade_estoque, c.nome AS categoria_nome
-                 FROM produtos p
-                 INNER JOIN categorias c ON c.id = p.categoria_id'
-            )->fetchAll();
-            $catalogo = array_map(static function (array $linha): array {
-                return [
-                    'id' => (int) $linha['id'],
-                    'nome' => $linha['nome'],
-                    'categoria' => $linha['categoria_nome'] ?? '',
-                    'quantidade_estoque' => (int) $linha['quantidade_estoque'],
-                    'nome_norm' => normalizar_texto($linha['nome']),
-                    'categoria_norm' => normalizar_texto($linha['categoria_nome'] ?? ''),
-                ];
-            }, $linhas);
-        }
-
-        $nomeNorm = normalizar_texto($nome);
-        $categoriaNorm = normalizar_texto($categoria);
-
-        $porNome = array_values(array_filter(
-            $catalogo,
-            static fn (array $p): bool => $p['nome_norm'] === $nomeNorm
-        ));
-
-        if (empty($porNome)) {
-            return ['match' => null, 'motivo' => 'nome_nao_encontrado', 'categorias' => [], 'categoria' => null];
-        }
-
-        $porNomeECategoria = array_values(array_filter(
-            $porNome,
-            static fn (array $p): bool => $p['categoria_norm'] === $categoriaNorm
-        ));
-
-        if (count($porNomeECategoria) === 1) {
-            return ['match' => $porNomeECategoria[0], 'motivo' => 'ok', 'categorias' => [], 'categoria' => $porNomeECategoria[0]['categoria']];
-        }
-
-        if (count($porNome) === 1) {
-            $p = $porNome[0];
-            return ['match' => $p, 'motivo' => 'categoria_diferente', 'categorias' => [], 'categoria' => $p['categoria']];
-        }
-
-        // Nome ambíguo: usa a categoria para desambiguar.
-        if (empty($porNomeECategoria)) {
-            $categorias = array_values(array_unique(array_column($porNome, 'categoria')));
-            return ['match' => null, 'motivo' => 'nome_ambiguo', 'categorias' => $categorias, 'categoria' => null];
-        }
-
-        return ['match' => null, 'motivo' => 'nome_ambiguo', 'categorias' => [], 'categoria' => null];
-    }
-
     public function create(array $data): int
     {
         $stmt = $this->db->prepare(
@@ -279,26 +193,6 @@ class Produto
             'UPDATE produtos SET quantidade_estoque = ? WHERE id = ?'
         );
         return $stmt->execute([$quantidade, $id]);
-    }
-
-    /**
-     * Zera o estoque de todos os produtos, exceto os ids informados.
-     * Retorna a quantidade de linhas afetadas.
-     */
-    public function zerarEstoqueExceto(array $ids): int
-    {
-        if (empty($ids)) {
-            $stmt = $this->db->prepare('UPDATE produtos SET quantidade_estoque = 0');
-            $stmt->execute();
-            return $stmt->rowCount();
-        }
-
-        $marcadores = implode(',', array_fill(0, count($ids), '?'));
-        $stmt = $this->db->prepare(
-            "UPDATE produtos SET quantidade_estoque = 0 WHERE id NOT IN ({$marcadores})"
-        );
-        $stmt->execute($ids);
-        return $stmt->rowCount();
     }
 
     public function debitarEstoque(int $id, int $quantidade): bool

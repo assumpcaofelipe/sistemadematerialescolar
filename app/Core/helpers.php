@@ -21,37 +21,6 @@ function slugify(string $text): string
     return $text ?: 'item';
 }
 
-/**
- * Normaliza texto para comparação "leniente" (case, acentos, espaços).
- * Usada na importação de estoque (CSV) e na detecção de cabeçalhos.
- * Remove acentos de forma determinística e colapsa espaços/nbsp.
- */
-function normalizar_texto(string $texto): string
-{
-    static $acentos = [
-        'á' => 'a', 'à' => 'a', 'â' => 'a', 'ã' => 'a', 'ä' => 'a', 'å' => 'a',
-        'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
-        'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i',
-        'ó' => 'o', 'ò' => 'o', 'ô' => 'o', 'õ' => 'o', 'ö' => 'o',
-        'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ü' => 'u',
-        'ç' => 'c', 'ñ' => 'n',
-        'Á' => 'a', 'À' => 'a', 'Â' => 'a', 'Ã' => 'a', 'Ä' => 'a', 'Å' => 'a',
-        'É' => 'e', 'È' => 'e', 'Ê' => 'e', 'Ë' => 'e',
-        'Í' => 'i', 'Ì' => 'i', 'Î' => 'i', 'Ï' => 'i',
-        'Ó' => 'o', 'Ò' => 'o', 'Ô' => 'o', 'Õ' => 'o', 'Ö' => 'o',
-        'Ú' => 'u', 'Ù' => 'u', 'Û' => 'u', 'Ü' => 'u',
-        'Ç' => 'c', 'Ñ' => 'n',
-        'º' => 'o', 'ª' => 'a',
-    ];
-
-    $texto = str_replace(["\xC2\xA0", "\xE2\x80\x89", "\xE2\x80\xAF"], ' ', $texto); // nbsp / thin space / narrow nbsp
-    $texto = strtr($texto, $acentos);
-    $texto = mb_strtolower($texto, 'UTF-8');
-    $texto = preg_replace('/\s+/u', ' ', $texto);
-    $texto = trim($texto);
-    return $texto;
-}
-
 function csrf_field(): string
 {
     return \App\Core\Csrf::field();
@@ -144,26 +113,32 @@ function paginacao_html(int $total, int $porPagina, int $pagina, string $base, a
         return '';
     }
 
-    $query['pagina'] = '{PAGINA}';
+    $params = $query;
+    unset($params['pagina']);
+    $paramsQuery = http_build_query($params);
     $baseUrl = rtrim($base, '/');
+
+    $montar = static function (int $n) use ($paramsQuery): string {
+        return ($paramsQuery === '' ? 'pagina=' . $n : $paramsQuery . '&pagina=' . $n);
+    };
 
     $links = '<ul class="pagination paginacao justify-content-center">';
 
     $anterior = max(1, $pagina - 1);
-    $qr = str_replace('{PAGINA}', (string) $anterior, http_build_query($query));
+    $qr = $montar($anterior);
     $desabilitado = $pagina <= 1 ? ' disabled' : '';
     $links .= '<li class="page-item' . $desabilitado . '"><a class="page-link" href="' . e($baseUrl . '?' . $qr) . '">&laquo; Anterior</a></li>';
 
     $inicio = max(1, $pagina - 2);
     $fim = min($totalPaginas, $pagina + 2);
     for ($i = $inicio; $i <= $fim; $i++) {
-        $qr = str_replace('{PAGINA}', (string) $i, http_build_query($query));
+        $qr = $montar($i);
         $ativo = $i === $pagina ? ' active' : '';
         $links .= '<li class="page-item' . $ativo . '"><a class="page-link" href="' . e($baseUrl . '?' . $qr) . '">' . $i . '</a></li>';
     }
 
     $proxima = min($totalPaginas, $pagina + 1);
-    $qr = str_replace('{PAGINA}', (string) $proxima, http_build_query($query));
+    $qr = $montar($proxima);
     $desabilitado = $pagina >= $totalPaginas ? ' disabled' : '';
     $links .= '<li class="page-item' . $desabilitado . '"><a class="page-link" href="' . e($baseUrl . '?' . $qr) . '">Próxima &raquo;</a></li>';
 

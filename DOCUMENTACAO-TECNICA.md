@@ -161,8 +161,6 @@ A assinatura é: `$router->get('/caminho', Classe::class, 'metodo')` e `$router-
 | `/admin/produtos/excluir/{id}` | POST | `Admin\ProdutoController::destroy` | painel + CSRF |
 | `/admin/produtos/estoque/{id}` | POST | `Admin\ProdutoController::ajustarEstoque` (JSON) | painel + CSRF |
 | `/admin/estoque` | GET (`?busca`, `?categoria`, `?situacao`) | `Admin\ProdutoController::estoque` | painel |
-| `/admin/estoque/exportar` | GET (baixa CSV) | `Admin\ProdutoController::estoqueExportar` | painel |
-| `/admin/estoque/importar` | GET/POST (upload CSV) | `Admin\ProdutoController::estoqueImportForm/estoqueImportar` | painel + CSRF |
 | `/admin/categorias` | GET/POST | `Admin\CategoriaController` | painel + CSRF |
 | `/admin/usuarios` | GET/POST | `Admin\UsuarioController` | **admin** + CSRF |
 | `/admin/usuarios/novo` `editar/{id}` `excluir/{id}` | GET/POST | `Admin\UsuarioController::create/edit/destroy` — escolas | **admin** + CSRF |
@@ -281,22 +279,11 @@ O controller em caso de `null` usa `flash('pedido_erro', ...)` e mostra a revis�
 
 > O acompanhamento de **estoque baixo/zerado** não fica no dashboard: está na página própria `/admin/estoque` (`Produto::paginarEstoque()`, filtros busca/categoria/situação, ajuste rápido via AJAX confirmado em modal — `LIMITE_BAIXO_ESTOQUE = 5`).
 
-### Importação e exportação de estoque via CSV (`/admin/estoque/im... exportar`)
+### Gestão de estoque (`/admin/estoque`)
 
-- **Exportar** (`ProdutoController::estoqueExportar`): baixa `estoque_YYYY-MM-DD.csv` com **BOM UTF-8** e separador `;`, exatamente 3 colunas:
-  `Produto;Categoria;Estoque`
-  - Usa `fputcsv(..., ';', '"', '')` — o 4º/5º argumento (`enclosure` e `escape`) são passados explicitamente para silenciar o deprecation do `fputcsv` no PHP 8.4.
-- **Importar** (`produtoController::estoqueImportar`):
-  - Aceita `.csv`/`.txt` (`multipart/form-data`, campo `arquivo`);
-  - Conteúdo normalizado para UTF-8 (arquivos ANSI/Windows-1252 gerados pelo Excel Windows são convertidos, BOM removido);
-  - Auto-detecta separador (`;` ou `,` preferindo `;`) na amostra inicial;
-  - **Cabeçalho flexível**: se a 1ª linha for cabeçalho reconhecível (`produto`, `nome`, `categoria`, `estoque`, etc.), as colunas são mapeadas por nome em **qualquer ordem** (`Estoque;Categoria;Produto` funciona); sem cabeçalho, assume `Produto;Categoria;Estoque`;
-  - Linhas totalmente vazias são ignoradas;
-  - Localiza o produto por `Produto::buscarParaImportacao` — comparação **leniente**: ignora caixa, acentos e espaços (helper `normalizar_texto`, `strtr` + `mb_strtolower` + `preg_replace('/\s+/u',' ')`). Match por **nome+categoria**; se o nome for único aceita mesmo com categoria divergente (anotado no flash de sucesso); se o nome for ambíguo exige categoria correta. Usa cache estático do catálogo por request (`buscarParaImportacao`);
-  - Validações por linha: nome não vazio, quantidade informada e ≥ 0, produto encontrado/único — erros acumulados em `$erros` com número da linha e motivo (flash mostra até 5 exemplos + contagem total);
-  - Opção **`substituir=1`** (checkbox "Zerar estoque dos produtos que não estiverem no arquivo") chama `Produto::zerarEstoqueExceto($idsAtualizados)`;
-  - Flash de sucesso e de erro são exibidos **em conjunto** (POST parcial retorna ambos).
-- View de referência: `views/admin/produtos/estoque_importar.php` (exemplo do formato + dica de exportar antes).
+- Página `Admin\ProdutoController::estoque` (filtros busca/categoria/situação, paginação) lista produtos com estoque baixo/zerado (≤ `LIMITE_BAIXO_ESTOQUE = 5`);
+- **Ajuste por produto**: `POST /admin/produtos/estoque/{id}` (`ajustarEstoque`, JSON + CSRF) — formulário inline na própria linha;
+- Não há importação/exportação por CSV — o estoque é atualizado individualmente pela página de estoque ou no formulário de produto (`quantidade_estoque`).
 
 > Compatibilidade PHP 8.3: o projeto NÃO usa `mb_str_contains` (inexistente) — usar `str_contains`. Dados dos gráficos são sempre escapados/convertidos para int no PHP antes do `json_encode`.
 
@@ -314,7 +301,6 @@ O controller em caso de `null` usa `flash('pedido_erro', ...)` e mostra a revis�
 | Traversal | upload salvo em `public/uploads` com nome aleatório |
 | Brute force | sem bloqueio dedicado (melhoria futura) — senha bcrypt |
 | Cache / PWA | `Cache-Control: no-store, no-cache, must-revalidate, max-age=0` e `Pragma: no-cache` definidos no `public/index.php` para todas as respostas HTML; service worker (`central-pedidos-v3`) **não armazena HTML** — apenas assets estáticos (CSS/JS/ícones), com purge automático de versões antigas. Garante que dados sensíveis não fiquem no cache do navegador. |
-| CSV import/export | aceita apenas `.csv`/`.txt` (validação de extensão); parser aceita separador `;` ou `,` (auto-detecta); encoding convertido de Windows-1252/ISO-8859-1 para UTF-8 automaticamente; mapeamento de colunas por cabeçalho flexível; match de produtos tolerante a caixa/acentos/espaços (`normalizar_texto`); erros de linha reportados com número e motivo; não há upload de imagem neste fluxo. |
 
 ---
 
@@ -397,7 +383,7 @@ Os footers (`admin_footer.php`/`escola_footer.php`) incluem `layouts/alertas.php
 Não há framework de testes automatizados no projeto. A validação de ponta a ponta é feita por scripts manuais em PowerShell/curl (no diretório `C:\Users\Felipe\AppData\Local\Temp\opencode\`), que exercitam no servidor real:
 
 - **Fluxo escola** (`teste_escola.ps1`): login → catálogo (busca/filtro/paginação) → adicionar/atualizar/remover carrinho (validações de estoque, produto inexistente, CSRF) → revisão → confirmar → sucesso → histórico → detalhe → logout;
-- **Fluxo admin** (`teste_admin*.ps1`): login → dashboard (gráficos) → pedidos (status, excluir com restauro de estoque) → categorias/produtos/usuários (CRUD completo) → estoque (ajuste, exportar CSV, importar CSV) → configurações → proteção de rotas por papel → CSRF inválido (419) → 404 → logout.
+- **Fluxo admin** (`teste_admin*.ps1`): login → dashboard (gráficos) → pedidos (status, excluir com restauro de estoque) → categorias/produtos/usuários (CRUD completo) → estoque (ajuste inline por produto) → configurações → proteção de rotas por papel → CSRF inválido (419) → 404 → logout.
 
 Cada execução cria um usuário temporário (admin + escola), testa e **remove tudo no final**, restaurando estoques alterados.
 

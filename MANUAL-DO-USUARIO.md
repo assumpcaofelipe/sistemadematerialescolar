@@ -176,34 +176,7 @@ Para mudar o status: abra o pedido, escolha o novo status e clique em **Atualiza
 - Lista apenas os produtos com **estoque baixo (5 ou menos) ou zerado**, com busca, filtro por categoria e filtro por situação (abaixo do limite / zerado);
 - Na própria linha é possível **corrigir o estoque** digitando o valor e clicando em **OK** — útil para reposição;
 - Cada zero recebe o destaque 🟥 **Sem estoque**;
-- No canto superior há dois botões: **Importar CSV** e **Exportar CSV** (para atualizar estoque em massa pela planilha).
-
-**Exportar estoque (CSV):**
-1. Clique em **Exportar CSV** — o navegador baixa o arquivo `estoque_AAAA-MM-DD.csv`;
-2. Abra no Excel: as colunas são `PRODUTO;CATEGORIA;ESTOQUE` (uma linha por produto);
-3. Altere quanto precisar e **salve como CSV** (mantendo o ponto e vírgula).
-
-**Importar estoque (CSV):**
-1. Clique em **Importar CSV**;
-2. Selecione o arquivo (`.csv` ou `.txt`). O formato padrão é `PRODUTO;CATEGORIA;ESTOQUE`:
-
-```text
-PRODUTO;CATEGORIA;ESTOQUE
-Lápis Escolar;Material Escolar;50
-Borracha Branca;Material Escolar;120
-Caderno 10 Matérias;papelaria;0
-```
-
-   - **PRODUTO** — nome como aparece no catálogo;
-   - **CATEGORIA** — categoria do produto;
-   - **ESTOQUE** — nova quantidade, só números.
-
-   O sistema é tolerante: aceita **colunas em outra ordem** (desde que o cabeçalho `Produto`/`Categoria`/`Estoque` exista), **cabeçalho opcional**, separador `;` ou `,`, diferenças de **maiúsculas/minúsculas, acentos e espaços** nos nomes, e até arquivos salvos pelo Excel do Windows (ANSI) — eles são convertidos automaticamente.
-
-3. Opcional: marque **"Zerar estoque dos produtos que não estiverem no arquivo"** para que tudo que não veio na planilha fique com estoque 0 (útil para o inventário completo do almoxarifado);
-4. Clique em **Importar**. Ao final o sistema informa quantos produtos foram atualizados e/ou zerados, e aponta **linha por linha** os erros com o motivo (ex.: produto não encontrado no cadastro).
-
-> Dica: **exporte a planilha primeiro**, edite a coluna ESTOQUE e reimporte — assim os nomes sempre batem com o cadastro.
+- O estoque também pode ser atualizado no cadastro do produto (**Produtos → Editar** → campo *Quantidade em estoque*). Não há importação/exportação por planilha.
 
 ### 3.4 Produtos (`/admin/produtos`)
 
