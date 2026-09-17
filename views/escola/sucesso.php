@@ -5,8 +5,8 @@
     <h1 class="h3 mb-2">Pedido registrado com sucesso!</h1>
     <p class="fs-4 mb-1">Seu pedido é o <strong>#<?= (int) $numero ?></strong></p>
     <p class="text-muted">
-        O pedido já foi salvo e a secretaria foi notificada por e-mail.<br>
-        Para acompanhar mais rápido, envie a mensagem pronta pelo WhatsApp:
+        O pedido foi registrado e será enviado um e-mail de aviso para a secretaria.<br>
+        Para <strong>confirmar o pedido</strong>, envie a mensagem pronta pelo WhatsApp abaixo:
     </p>
 
     <a href="<?= e($linkWhats) ?>" target="_blank" rel="noopener" class="btn btn-success btn-lg mb-3">
