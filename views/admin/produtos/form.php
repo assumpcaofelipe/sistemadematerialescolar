@@ -43,9 +43,10 @@ $url = $produto
 
         <div class="row">
             <div class="col-12 col-md-6 mb-3">
-                <label class="form-label" for="quantidade_estoque">Estoque</label>
-                <input type="number" class="form-control" id="quantidade_estoque" name="quantidade_estoque" step="1"
+                <label class="form-label" for="quantidade_estoque">Estoque *</label>
+                <input type="number" class="form-control" id="quantidade_estoque" name="quantidade_estoque" step="1" min="0" required
                        value="<?= (int) ($produto['quantidade_estoque'] ?? 0) ?>">
+                <div class="form-text">Quantidade disponível para os pedidos.</div>
             </div>
             <div class="col-12 col-md-6 mb-3">
                 <label class="form-label d-block">Status</label>

@@ -171,32 +171,34 @@ O fluxo normal é: **realizado → em andamento → concluído**. O cancelamento
 
 Para mudar o status: abra o pedido, escolha o novo status e clique em **Atualizar status**.
 
-> **Baixa de estoque só na conclusão.** Ao marcar um pedido como **concluído**, o sistema dá baixa (subtrai) das quantidades no estoque. Se algum item estiver **zerado** ou **insuficiente**, a conclusão é bloqueada e aparece a lista dos itens com problema — corrija o estoque em **Estoque → Editar** e tente de novo.
+> **Baixa de estoque só na conclusão.** Ao marcar um pedido como **concluído**, o sistema dá baixa (subtrai) das quantidades no estoque. Se algum item estiver **zerado** ou **insuficiente**, a conclusão é bloqueada e aparece a lista dos itens com problema — corrija o estoque em **Produtos → Editar** e tente de novo.
 >
 > Ao **tirar** um pedido de concluído (ex.: voltar para em andamento ou cancelar), o estoque baixado é **restaurado** automaticamente. Excluir um pedido concluído também devolve o estoque.
 
 ### 3.3 Estoque (`/admin/estoque`)
+
+**Tela de consulta** — serve para acompanhar as quantidades e identificar itens baixos/zerados. Aqui **não** se edita.
 
 - Lista **todos os produtos ativos**, com **busca**, **filtro por categoria** e **filtro por situação**:
   - *Todos os produtos (maior para o menor)* — padrão;
   - *Todos os produtos (menor para o maior)* — ajuda a achar os mais críticos;
   - *Estoque baixo (menor que 7)* — itens entre 1 e 6;
   - *Estoque zerado*.
-- A coluna **Situação** mostra a etiqueta: **Ok** (7 ou mais), **Baixo** (1 a 6), **Zerado** (0) ou **Faltando N** (estoque negativo).
-- A quantidade aparece em um campo **somente leitura** (não é editável na lista);
-- Para repor/ajustar, clique em **Editar** e altere o campo *Estoque* no cadastro do produto (item 3.4). Não há importação/exportação por planilha.
+- A tabela mostra **Produto**, **Categoria**, **Estoque** e **Status**, mas os campos estão **desabilitados** (somente leitura).
+
+> Para alterar a quantidade ou o status, use **Produtos → Novo/Editar** (item 3.4). Não há importação/exportação por planilha.
 
 ### 3.4 Produtos (`/admin/produtos`)
 
-- Lista paginada (**20 por página**) com **busca** (nome/descrição) e **filtro por categoria**;
-- A coluna de **estoque é somente leitura**: mostra o valor atual e a etiqueta **Zerado** ou **Faltando N** quando não há saldo. Para alterar, use **Editar**;
+- Lista paginada (**20 por página**) com **busca** (nome/descrição) e **filtro por categoria**. A listagem **não** mostra estoque nem status;
 - Botão **+ Novo produto** abre o formulário de cadastro com:
   - Categoria (obrigatória);
   - Nome (obrigatório);
   - **Descrição** (obrigatória — deve conter a unidade/medida, ex.: “UN”, “CX c/ 50 un”, “500g”);
-  - Estoque inicial;
+  - **Estoque** (obrigatório — quantidade disponível para os pedidos);
   - Status ativo/inativo;
   - Imagem (opcional, até 2MB).
+- No cadastro/edição é possível alterar **nome, descrição, categoria, estoque, status, slug e imagem**; é aqui que se repõe ou ajusta o estoque;
 - Botões **Editar** e **Excluir** em cada linha;
 - Formulário possui slug automático (campo opcional). Produto **inativo** não aparece no catálogo da escola.
 

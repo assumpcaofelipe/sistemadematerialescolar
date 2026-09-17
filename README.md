@@ -89,8 +89,8 @@ Revisão → validar estoque novamente → salvar pedido (transação) → debit
 
 /admin                -> dashboard
 /admin/pedidos
-/admin/estoque        -> estoque baixo/zerado (filtro + ajuste rápido)
-/admin/produtos       -> busca + filtro + paginação 20/pág + ajuste rápido de estoque
+/admin/estoque        -> consulta (Produto/Categoria/Estoque/Status, somente leitura)
+/admin/produtos       -> CRUD; estoque e status editados no formulário
 /admin/categorias
 /admin/usuarios
 /admin/configuracoes

@@ -17,7 +17,8 @@ DOCUMENTACAO-TECNICA.md.
 - Excluída a view de importação (views/admin/produtos/estoque_importar.php).
 - Removidos helpers/consultas que só existiam para a importação:
   findByNomeCategoria, buscarParaImportacao, zerarEstoqueExceto, normalizar_texto.
-- O estoque passou a ser atualizado produto a produto (formulário de edição).
+- O estoque passou a ser atualizado produto a produto pelo formulário do produto
+  (cadastro/edição). A tela /admin/estoque virou apenas consulta.
 
 
 ================================================================================
@@ -82,24 +83,35 @@ DOCUMENTACAO-TECNICA.md.
 
 ================================================================================
 6. TELA ADMIN DE ESTOQUE E PRODUTOS
-================================================================================
-- views/admin/produtos/estoque.php e views/admin/produtos/index.php:
-  - Campo de estoque agora é SOMENTE LEITURA (não edita mais na lista).
-  - Etiquetas de situação: "Ok" (>= 7), "Baixo" (1 a 6), "Zerado" (0) e
-    "Faltando N" (estoque negativo, em vermelho).
-  - Limite de estoque baixo definido em LIMITE_BAIXO_ESTOQUE = 7.
-- Filtros da tela /admin/estoque:
+===============================================================================
+DECISÃO FINAL (define onde cada coisa é editada):
+- /admin/produtos/novo e /admin/produtos/editar/{id} -> editam QUANTIDADE e
+  STATUS do produto (junto com nome, descrição, categoria, slug e imagem).
+- /admin/estoque   -> SOMENTE CONSULTA: mostra Produto, Categoria, Estoque e
+  Status, com os campos DESABILITADOS (disabled). Não edita nada.
+
+- views/admin/produtos/form.php: campo "Estoque" (quantidade_estoque, number,
+  obrigatório, min 0) volta a aparecer, ao lado do Status. Vale para cadastro
+  (novo) e edição.
+- views/admin/produtos/index.php: NÃO mostra as colunas "Estoque" e "Status"
+  (tabela: Produto | Categoria | Ações).
+- views/admin/produtos/estoque.php: tabela Produto | Categoria | Estoque |
+  Status, com input de estoque e select de status DESABILITADOS; sem formulário
+  e sem botão Salvar; aviso "Consulta apenas. Para alterar... use Produtos".
+- app/Controllers/Admin/ProdutoController.php:
+  - dadosDoFormulario() voltou a incluir quantidade_estoque (int).
+  - Removido o método atualizarEstoque (não há mais POST de estoque).
+- app/Models/Produto.php:
+  - update() voltou a gravar quantidade_estoque.
+  - Removido atualizarEstoqueStatus (não usado).
+- routes/web.php: removida a rota POST /admin/estoque/atualizar/{id} (que havia
+  sido criada e agora não existe mais).
+- Filtros da tela /admin/estoque (inalterados):
   - "Todos os produtos (maior para o menor)" (padrão)
   - "Todos os produtos (menor para o maior)"
   - "Estoque baixo (menor que 7)"
   - "Estoque zerado"
   - Produto::paginarEstoque() com situacao = todos | asc | baixo | zerado.
-- Removido o ajuste rápido de estoque (campo + botão OK):
-  - Rota POST /admin/produtos/estoque/{id}.
-  - ProdutoController::ajustarEstoque.
-  - Produto::ajustarEstoque.
-  - Bloco JS "js-ajuste-estoque" (public/assets/js/app.js).
-  - O estoque é editado apenas pelo formulário do produto (Editar).
 
 
 ================================================================================

@@ -3,6 +3,7 @@
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
     <h2 class="h4 mb-0"><?= icon('alert-triangle', '20', '20', 'me-1') ?>Estoque <span class="text-muted fs-6">(<?= $total ?>)</span></h2>
 </div>
+<p class="text-muted small">Consulta apenas. Para alterar a quantidade ou o status, use <a href="/admin/produtos">Produtos</a> &rarr; Novo/Editar.</p>
 
 <form method="get" action="/admin/estoque" class="row g-2 mb-3">
     <div class="col-12 col-md-4">
@@ -43,14 +44,13 @@
                 <tr>
                     <th>Produto</th>
                     <th>Categoria</th>
-                    <th class="text-center">Situação</th>
                     <th class="text-center">Estoque</th>
-                    <th class="table-acoes text-end">Ações</th>
+                    <th class="text-center">Status</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (!$produtos): ?>
-                    <tr><td colspan="5" class="text-center text-muted py-4">Nenhum produto nesta condição.</td></tr>
+                    <tr><td colspan="4" class="text-center text-muted py-4">Nenhum produto nesta condição.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($produtos as $produto): ?>
                     <?php $qtd = (int) $produto['quantidade_estoque']; ?>
@@ -71,24 +71,16 @@
                         </td>
                         <td><?= e($produto['categoria_nome']) ?></td>
                         <td class="text-center">
-                            <?php if ($qtd < 0): ?>
-                                <span class="badge bg-danger">Faltando <?= abs($qtd) ?></span>
-                            <?php elseif ($qtd === 0): ?>
-                                <span class="badge bg-danger">Zerado</span>
-                            <?php elseif ($qtd < (int) $limiteBaixo): ?>
-                                <span class="badge bg-warning text-dark">Baixo</span>
-                            <?php else: ?>
-                                <span class="text-muted small">Ok</span>
-                            <?php endif; ?>
-                        </td>
-                        <td class="text-center">
-                            <input type="number" step="1" readonly
-                                   class="form-control form-control-sm text-center"
-                                   style="width: 84px; display: -webkit-box; -webkit-box-pack: center; color: <?= $qtd < 0 ? '#dc3545' : 'inherit' ?>;"
+                            <input type="number" step="1" disabled
+                                   class="form-control form-control-sm text-center d-inline-block"
+                                   style="width: 90px; color: <?= $qtd < 0 ? '#dc3545' : 'inherit' ?>;"
                                    value="<?= $qtd ?>"<?= $qtd < 0 ? ' title="Estoque em falta"' : '' ?>>
                         </td>
-                        <td class="text-end">
-                            <a href="/admin/produtos/editar/<?= (int) $produto['id'] ?>" class="btn btn-sm btn-outline-primary">Editar</a>
+                        <td class="text-center">
+                            <select class="form-select form-select-sm d-inline-block" style="width: 110px;" disabled>
+                                <option value="1" <?= ((int) $produto['status'] === 1) ? 'selected' : '' ?>>Ativo</option>
+                                <option value="0" <?= ((int) $produto['status'] === 0) ? 'selected' : '' ?>>Inativo</option>
+                            </select>
                         </td>
                     </tr>
                 <?php endforeach; ?>

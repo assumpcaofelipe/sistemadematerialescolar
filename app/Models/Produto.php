@@ -175,7 +175,7 @@ class Produto
             $data['slug'],
             $data['descricao'],
             $data['imagem'] ?? null,
-            $data['quantidade_estoque'] ?? 0,
+            (int) ($data['quantidade_estoque'] ?? 0),
             $data['status'] ?? 1,
             $id,
         ]);

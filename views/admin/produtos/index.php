@@ -36,17 +36,14 @@
                 <tr>
                     <th>Produto</th>
                     <th>Categoria</th>
-                    <th class="text-center">Estoque</th>
-                    <th class="text-center">Status</th>
                     <th class="table-acoes">Ações</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (!$produtos): ?>
-                    <tr><td colspan="5" class="text-center text-muted py-4">Nenhum produto encontrado.</td></tr>
+                    <tr><td colspan="3" class="text-center text-muted py-4">Nenhum produto encontrado.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($produtos as $produto): ?>
-                    <?php $qtd = (int) $produto['quantidade_estoque']; ?>
                     <tr>
                         <td>
                             <div class="d-flex align-items-center gap-2" style="max-width: 520px;">
@@ -63,24 +60,6 @@
                             </div>
                         </td>
                         <td><?= e($produto['categoria_nome']) ?></td>
-                        <td class="text-center">
-                            <input type="number" step="1" readonly
-                                   class="form-control form-control-sm text-center"
-                                   style="width: 84px; color: <?= $qtd < 0 ? '#dc3545' : 'inherit' ?>;"
-                                   value="<?= $qtd ?>"<?= $qtd < 0 ? ' title="Estoque em falta"' : '' ?>>
-                            <?php if ($qtd === 0): ?>
-                                <span class="badge bg-danger">Zerado</span>
-                            <?php elseif ($qtd < 0): ?>
-                                <span class="badge bg-danger">Faltando <?= abs($qtd) ?></span>
-                            <?php endif; ?>
-                        </td>
-                        <td class="text-center">
-                            <?php if ((int) $produto['status'] === 1): ?>
-                                <span class="badge bg-success">Ativo</span>
-                            <?php else: ?>
-                                <span class="badge bg-secondary">Inativo</span>
-                            <?php endif; ?>
-                        </td>
                         <td>
                             <a href="/admin/produtos/editar/<?= (int) $produto['id'] ?>" class="btn btn-sm btn-outline-primary">Editar</a>
                             <form method="post" action="/admin/produtos/excluir/<?= (int) $produto['id'] ?>"

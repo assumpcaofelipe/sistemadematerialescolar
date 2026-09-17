@@ -294,8 +294,8 @@ O controller devolve a tela de sucesso com o número e o link de WhatsApp. **Nen
 ### Gestão de estoque (`/admin/estoque`)
 
 - Página `Admin\ProdutoController::estoque` lista **todos os produtos ativos** (busca + categoria + situação + paginação). `situacao` aceita `todos` (padrão, maior→menor), `asc` (menor→maior), `baixo` (`0 < qtd < 7`) e `zerado` (`qtd = 0`); valores fora da lista caem em `todos`;
-- A coluna **Situação** usa badges: `Ok` (≥7), `Baixo` (1–6), `Zerado` (0) e `Faltando N` (negativo, texto vermelho). O campo de estoque é **`readonly`** — não há mais ajuste rápido na lista (a rota `POST /admin/produtos/estoque/{id}` e `ajustarEstoque()` foram removidas);
-- A edição de estoque é feita no **formulário do produto** (`/admin/produtos/editar/{id}`, campo `quantidade_estoque`);
+- A tabela exibe **Produto**, **Categoria**, **Estoque** e **Status** apenas para **consulta**: os campos são `disabled` (sem formulário e sem botão Salvar). A edição de quantidade/status é feita no **formulário do produto** (`/admin/produtos/novo` e `/admin/produtos/editar/{id}`), campos `quantidade_estoque` e `status`;
+- `ProdutoController::dadosDoFormulario()` inclui `quantidade_estoque` (int) e `Produto::update()`/`create()` gravam essa coluna; o status do produto só muda por esse formulário;
 - Não há importação/exportação por CSV.
 
 > Compatibilidade PHP 8.3: o projeto NÃO usa `mb_str_contains` (inexistente) — usar `str_contains`. Dados dos gráficos são sempre escapados/convertidos para int no PHP antes do `json_encode`.
@@ -396,7 +396,7 @@ Os footers (`admin_footer.php`/`escola_footer.php`) incluem `layouts/alertas.php
 Não há framework de testes automatizados no projeto. A validação de ponta a ponta é feita por scripts manuais em PowerShell/curl (no diretório `C:\Users\Felipe\AppData\Local\Temp\opencode\`), que exercitam no servidor real:
 
 - **Fluxo escola**: login → catálogo (busca/filtro/paginação, sem exibir estoque) → adicionar/atualizar/remover carrinho (sem bloqueio de estoque; produto inexistente e CSRF) → revisão → confirmar → sucesso (link/mensagem do WhatsApp) → histórico → detalhe → logout;
-- **Fluxo admin**: login → dashboard (gráficos) → pedidos (mudança de status com validação de estoque na conclusão e restauração ao sair de concluído; excluir com restauro) → categorias/produtos/usuários (CRUD completo) → estoque (filtros `todos`/`asc`/`baixo`/`zerado`, campo readonly) → configurações (WhatsApp admin-only) → proteção de rotas por papel → CSRF inválido (419) → 404 → logout;
+- **Fluxo admin**: login → dashboard (gráficos) → pedidos (mudança de status com validação de estoque na conclusão e restauração ao sair de concluído; excluir com restauro) → categorias/produtos/usuários (CRUD completo; produto edita nome/descrição/categoria/**estoque**/status/imagem) → estoque (filtros `todos`/`asc`/`baixo`/`zerado`, **campos `disabled` — só consulta**) → configurações (WhatsApp admin-only) → proteção de rotas por papel → CSRF inválido (419) → 404 → logout;
 - **Sessões**: verificação de `SESS_EDUCA_ESCOLA`/`SESS_EDUCA_ADMIN` simultâneos, logout independente e mensagens de expiração/desconexão.
 
 Cada execução cria um usuário temporário (admin + escola), testa e **remove tudo no final**, restaurando estoques alterados. Não deixar scripts/sondas temporários dentro de `public/`.
