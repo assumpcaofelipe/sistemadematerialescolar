@@ -70,12 +70,12 @@ class NotificacaoService
     {
         $linhas = [];
         foreach ($itens as $item) {
-            $linhas[] = '- ' . (int) $item['quantidade'] . 'x ' . $item['produto_nome'];
+            $linhas[] = '• ' . (int) $item['quantidade'] . 'x ' . $item['produto_nome'];
         }
 
-        $mensagem = "Olá! A escola {$escola} registrou o pedido #{$numero} pelo sistema.";
-        $mensagem .= "\n\nProdutos:\n" . implode("\n", $linhas);
-        $mensagem .= "\n\nAguardamos a confirmação/processamento.";
+        $mensagem = "Olá! A escola {$escola} realizou o pedido #{$numero} pelo Sistema de Pedidos Escolares.";
+        $mensagem .= "\n\nProdutos solicitados:\n" . implode("\n", $linhas);
+        $mensagem .= "\n\nAguardamos o recebimento e o processamento do pedido.\n\nObrigado!";
 
         return $mensagem;
     }

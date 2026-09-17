@@ -1,0 +1,36 @@
+- Bug: corrigir o erro
+
+- Em vez de aparecer a quantidade de itens disponiveis na loja. o cliente só precisa fazer o pedido, sem saber se tem não no estoque não.
+
+
+- no select do filtro do estoque: tem que deixar filtra todo os itens
+
+
+- Ter opção de poder cancelar o pedido.
+
+
+*PEDIDO LOCAL*
+
+ Dever ter uma opção para fazer pedidos locais dentro do admin.e prencher os campos abaixo
+
+ 
+
+- No momento que a escola ao concluir o pedido vai um modal:
+com seguintes campos:
+- Nome  * campo obrigatório
+- Setor  * campo obrigatório
+ - Observação
+
+
+ e quem vai faz o pedido pela escola
+ Nome:
+ Setor
+ Observação:
+
+ Mudar mensagem:
+
+Pedido registrado com sucesso!
+Seu pedido é o #2048
+
+O pedido já foi salvo e a secretaria foi notificada por e-mail.
+Para acompanhar mais rápido, envie a mensagem pronta pelo WhatsApp:

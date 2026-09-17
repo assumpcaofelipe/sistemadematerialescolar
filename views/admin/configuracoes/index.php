@@ -8,20 +8,17 @@
     <div class="card-body">
         <?= csrf_field() ?>
 
+        <?php if (\App\Core\Auth::isAdmin()): ?>
         <div class="mb-3">
             <label class="form-label" for="whatsapp">Número de WhatsApp da secretaria</label>
             <input type="text" class="form-control" id="whatsapp" name="whatsapp"
-                   placeholder="Ex: 5511998877665" value="<?= e($configuracoes['whatsapp_secretaria'] ?? '') ?>">
+                   placeholder="Ex.: 5511998877665 — DDI + DDD + número, somente dígitos"
+                   value="<?= e($configuracoes['whatsapp_secretaria'] ?? '') ?>">
             <div class="form-text">
-                Somente números, com DDI e DDD. Usado para montar o link wa.me.
+                Onde os pedidos serão recebidos. Exemplo: 55 (Brasil) + 11 (DDD) + 988776655.
             </div>
         </div>
-
-        <div class="mb-3">
-            <label class="form-label" for="email">E-mail da secretaria (recebe notificações)</label>
-            <input type="email" class="form-control" id="email" name="email"
-                   value="<?= e($configuracoes['email_secretaria'] ?? '') ?>">
-        </div>
+        <?php endif; ?>
 
         <button type="submit" class="btn btn-primary">Salvar configurações</button>
     </div>

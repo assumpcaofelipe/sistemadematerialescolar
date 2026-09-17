@@ -15,7 +15,6 @@
                     <tr>
                         <th>Produto</th>
                         <th class="text-center" style="width:180px;">Quantidade</th>
-                        <th class="text-center" style="width:90px;">Disponível</th>
                         <th class="table-acoes text-end">Remover</th>
                     </tr>
                 </thead>
@@ -33,13 +32,11 @@
                                 <form class="js-atualizar-carrinho d-flex justify-content-center gap-2">
                                     <input type="hidden" name="produto_id" value="<?= (int) $produto['id'] ?>">
                                     <input type="number" name="quantidade" min="0"
-                                           max="<?= (int) $produto['quantidade_estoque'] ?>"
                                            value="<?= (int) $item['quantidade'] ?>"
                                            class="form-control form-control-sm text-center" style="width:80px;">
                                     <button type="submit" class="btn btn-sm btn-outline-primary">Atualizar</button>
                                 </form>
                             </td>
-                            <td class="text-center"><?= (int) $produto['quantidade_estoque'] ?></td>
                             <td class="text-end">
                                 <form class="js-remover-carrinho">
                                     <input type="hidden" name="produto_id" value="<?= (int) $produto['id'] ?>">

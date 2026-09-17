@@ -16,7 +16,11 @@ class AuthController extends Controller
         if (Auth::check() && Auth::isEscola()) {
             $this->redirect('/catalogo');
         }
-        $this->view('auth/login', ['erro' => $this->getFlash('auth_error')]);
+        $erro = $this->getFlash('auth_error');
+        if ($erro === null && isset($_GET['saiu'])) {
+            $erro = 'Você foi desconectado. Faça login novamente.';
+        }
+        $this->view('auth/login', ['erro' => $erro]);
     }
 
     public function login(): void
@@ -89,6 +93,6 @@ class AuthController extends Controller
     public function logout(): void
     {
         Auth::logout();
-        $this->redirect('/');
+        $this->redirect('/?saiu=1');
     }
 }

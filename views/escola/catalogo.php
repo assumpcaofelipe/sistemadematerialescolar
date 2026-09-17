@@ -32,9 +32,8 @@
 
 <div class="row g-3">
     <?php foreach ($produtos as $produto): ?>
-        <?php $disponivel = (int) $produto['quantidade_estoque'] > 0; ?>
         <div class="col-6 col-md-4 col-lg-3">
-            <div class="card h-100 card-produto shadow-sm <?= $disponivel ? '' : 'produto-indisponivel' ?>">
+            <div class="card h-100 card-produto shadow-sm">
                 <?php if ($produto['imagem']): ?>
                     <img src="<?= BASE_URL ?>/<?= e($produto['imagem']) ?>" class="card-img-top" alt="">
                 <?php else: ?>
@@ -47,25 +46,17 @@
                     <p class="text-muted small mb-2"><?= e($produto['categoria_nome']) ?></p>
                     <p class="card-text small flex-grow-1"><?= e($produto['descricao']) ?></p>
 
-                    <?php if ($disponivel): ?>
-                        <form class="mt-2 js-adicionar-carrinho">
-                            <input type="hidden" name="produto_id" value="<?= (int) $produto['id'] ?>">
-                            <div class="input-group input-group-sm">
-                                <input type="number" name="quantidade" min="1"
-                                       max="<?= (int) $produto['quantidade_estoque'] ?>"
-                                       value="1" class="form-control text-center">
-                                <button type="submit" class="btn btn-primary">
-                                    <span class="d-inline d-md-none">+</span>
-                                    <span class="d-none d-md-inline">Adicionar</span>
-                                </button>
-                            </div>
-                            <small class="text-muted">Disponível: <?= (int) $produto['quantidade_estoque'] ?></small>
-                        </form>
-                    <?php else: ?>
-                        <div class="mt-2">
-                            <span class="badge bg-secondary fs-6">Indisponível</span>
+                    <form class="mt-2 js-adicionar-carrinho">
+                        <input type="hidden" name="produto_id" value="<?= (int) $produto['id'] ?>">
+                        <div class="input-group input-group-sm">
+                            <input type="number" name="quantidade" min="1"
+                                   value="1" class="form-control text-center">
+                            <button type="submit" class="btn btn-primary">
+                                <span class="d-inline d-md-none">+</span>
+                                <span class="d-none d-md-inline">Adicionar</span>
+                            </button>
                         </div>
-                    <?php endif; ?>
+                    </form>
                 </div>
             </div>
         </div>

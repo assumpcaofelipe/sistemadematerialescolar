@@ -6,7 +6,7 @@ Este manual explica o funcionamento do sistema para os três perfis de usuário:
 
 - **Escola** — entra, monta o pedido e envia para a secretaria.
 - **Administrador (secretaria)** — acessa tudo: pedidos, produtos, estoque, categorias, usuários e escolas.
-- **Supervisor (secretaria)** — ajuda no atendimento (pedidos, produtos, estoque, categorias e configurações), mas **não** acessa o módulo de usuários nem cadastra escolas.
+- **Supervisor (secretaria)** — ajuda no atendimento (pedidos, produtos, estoque e categorias), mas **não** acessa o módulo de usuários/escolas nem as configurações da secretaria.
 
 > Importante: o sistema **não tem preço nem pagamento**. Ele serve apenas para *requisitar* materiais de forma organizada.
 
@@ -58,12 +58,11 @@ No topo do catálogo há:
 
 Os resultados são paginados em **20 produtos por página** (navegação “Anterior / números / Próxima” no fim da lista).
 
-### 2.3 Disposição do produto (estoque)
+### 2.3 Quantidade e estoque
 
-- **Disponível**: aparece o campo de quantidade e o botão **Adicionar**.
-- **Indisponível** (estoque zero): o produto continua visível, mas com a etiqueta **Indisponível** e sem botão de adicionar.
+A escola **não vê** a quantidade em estoque. Todo produto ativo aparece no catálogo com o campo de quantidade e o botão **Adicionar**, independentemente de haver estoque naquele momento.
 
-> O número “Disponível: X” mostra quanto há em estoque naquele momento.
+O controle de estoque é feito apenas pela secretaria: ao **concluir** o pedido o sistema dá baixa nos produtos e, se não houver saldo suficiente, a conclusão é bloqueada (veja o item 3.2).
 
 ### 2.4 Montando o pedido (carrinho)
 
@@ -78,7 +77,7 @@ No carrinho você pode:
 - **Continuar escolhendo** (voltar ao catálogo);
 - **Finalizar pedido** quando estiver pronto.
 
-> O sistema **não aceita** quantidade maior que o estoque disponível.
+> A escola pode pedir qualquer quantidade. O estoque é conferido apenas no momento em que a secretaria **conclui** o pedido (item 3.2).
 
 ### 2.5 Revisão e confirmação do pedido
 
@@ -88,32 +87,33 @@ No carrinho você pode:
 
 ### 2.6 O que acontece ao confirmar (em ordem)
 
-1. O estoque de **todos** os produtos é validado novamente;
-2. O pedido é **salvo** no banco;
-3. O **estoque é debitado**;
-4. É gerado o **número do pedido** (ex.: **#2048**);
-5. Um **e-mail automático** é enviado para a secretaria;
-6. O sistema abre a **mensagem pronta do WhatsApp** para você enviar à secretaria (envio manual);
-7. Aparece a **tela de sucesso**.
+1. O pedido é **salvo** no banco de dados (status **realizado**);
+2. É gerado o **número do pedido** (ex.: **#2048**);
+3. Um **e-mail automático** é enviado para a secretaria;
+4. Aparece a **tela de sucesso**, com o botão que abre a **mensagem pronta do WhatsApp** (envio manual).
 
-> Se algum item ficou indisponível ou sem estoque nesse momento final, você verá uma mensagem amigável e poderá ajustar as quantidades antes de tentar de novo.
+> O estoque **não** é alterado neste momento. A baixa acontece somente quando a secretaria marca o pedido como **concluído**.
 
 ### 2.7 Tela de sucesso e WhatsApp
 
-A tela de sucesso mostra o número do pedido. Habitualmente há um botão **💬 Enviar mensagem no WhatsApp** que abre o WhatsApp (app ou web) com a mensagem pronta, já preenchida:
+A tela de sucesso mostra o número do pedido e um botão **💬 Enviar mensagem no WhatsApp** que abre o WhatsApp (app ou web) com a mensagem pronta, já preenchida:
 
 ```text
-Olá! A escola [Nome da Escola] registrou o pedido #2048 pelo sistema.
+Olá! A escola [Nome da Escola] realizou o pedido #2048 pelo Sistema de Pedidos Escolares.
 
-Produtos:
-- 10x Caderno universitário
-- 5x Caixa de lápis de cor
-- 2x Resma de papel A4
+Produtos solicitados:
+• 10x Caderno universitário
+• 5x Caixa de lápis de cor
+• 2x Resma de papel A4
 
-Aguardamos a confirmação/processamento.
+Aguardamos o recebimento e o processamento do pedido.
+
+Obrigado!
 ```
 
 Você apenas verifica e envia. Isso garante a formalização do pedido mesmo que o e-mail demore.
+
+> O número que recebe essas mensagens é definido pela secretaria em **Configurações → Secretaria (WhatsApp)** (item 3.8).
 
 ### 2.8 Histórico de pedidos
 
@@ -141,7 +141,7 @@ Se o e-mail estiver correto, a senha é atualizada na hora e você volta a entra
 
 URL: `https://SEU_DOMINIO/admin`
 
-Ambos entram pelo mesmo endereço `/admin`. A **única diferença**: o **supervisor não vê** os itens **Escolas** e **Usuários do sistema** no menu lateral (essas telas são exclusivas do administrador).
+Ambos entram pelo mesmo endereço `/admin`. A **diferença**: o **supervisor não vê** no menu lateral o grupo **Configurações** (que reúne **Escolas**, **Usuários do sistema** e **Secretaria (WhatsApp)**) — essas telas são exclusivas do administrador.
 
 ### 3.1 Dashboard
 
@@ -171,17 +171,25 @@ O fluxo normal é: **realizado → em andamento → concluído**. O cancelamento
 
 Para mudar o status: abra o pedido, escolha o novo status e clique em **Atualizar status**.
 
+> **Baixa de estoque só na conclusão.** Ao marcar um pedido como **concluído**, o sistema dá baixa (subtrai) das quantidades no estoque. Se algum item estiver **zerado** ou **insuficiente**, a conclusão é bloqueada e aparece a lista dos itens com problema — corrija o estoque em **Estoque → Editar** e tente de novo.
+>
+> Ao **tirar** um pedido de concluído (ex.: voltar para em andamento ou cancelar), o estoque baixado é **restaurado** automaticamente. Excluir um pedido concluído também devolve o estoque.
+
 ### 3.3 Estoque (`/admin/estoque`)
 
-- Lista apenas os produtos com **estoque baixo (5 ou menos) ou zerado**, com busca, filtro por categoria e filtro por situação (abaixo do limite / zerado);
-- Na própria linha é possível **corrigir o estoque** digitando o valor e clicando em **OK** — útil para reposição;
-- Cada zero recebe o destaque 🟥 **Sem estoque**;
-- O estoque também pode ser atualizado no cadastro do produto (**Produtos → Editar** → campo *Quantidade em estoque*). Não há importação/exportação por planilha.
+- Lista **todos os produtos ativos**, com **busca**, **filtro por categoria** e **filtro por situação**:
+  - *Todos os produtos (maior para o menor)* — padrão;
+  - *Todos os produtos (menor para o maior)* — ajuda a achar os mais críticos;
+  - *Estoque baixo (menor que 7)* — itens entre 1 e 6;
+  - *Estoque zerado*.
+- A coluna **Situação** mostra a etiqueta: **Ok** (7 ou mais), **Baixo** (1 a 6), **Zerado** (0) ou **Faltando N** (estoque negativo).
+- A quantidade aparece em um campo **somente leitura** (não é editável na lista);
+- Para repor/ajustar, clique em **Editar** e altere o campo *Estoque* no cadastro do produto (item 3.4). Não há importação/exportação por planilha.
 
 ### 3.4 Produtos (`/admin/produtos`)
 
 - Lista paginada (**20 por página**) com **busca** (nome/descrição) e **filtro por categoria**;
-- Na própria lista é possível **ajustar o estoque** digitando o número e clicando em **OK**;
+- A coluna de **estoque é somente leitura**: mostra o valor atual e a etiqueta **Zerado** ou **Faltando N** quando não há saldo. Para alterar, use **Editar**;
 - Botão **+ Novo produto** abre o formulário de cadastro com:
   - Categoria (obrigatória);
   - Nome (obrigatório);
@@ -214,15 +222,17 @@ Acessível pelo menu **Configurações → Usuários do sistema** *(somente admi
 - **Adicionar usuário do sistema**: informe nome, e-mail, senha e escolha o tipo (Administrador ou Supervisor);
 - **Editar**: além de nome/e-mail/senha, é possível **trocar a função** do usuário (Administrador ↔ Supervisor) e ativar/desativar o acesso. Se você mudar a **sua própria função**, o sistema encerra a sessão e você entrará novamente com o novo perfil;
 - **Excluir**: remove o usuário do painel. Proteções do sistema: você **não pode excluir a si mesmo**, e o sistema **não permite excluir ou desativar o último administrador** (sempre precisa sobrar pelo menos um administrador ativo);
-- O **Supervisor** recebe acesso ao painel (pedidos, produtos, estoque, categorias e configurações), mas **não** ao módulo de usuários/escolas;
+- O **Supervisor** recebe acesso ao painel (pedidos, produtos, estoque e categorias), mas **não** ao grupo **Configurações** (usuários/escolas e secretaria);
 - Recomenda-se manter **poucos usuários do tipo administrador**; para o dia a dia, crie supervisores.
 
-### 3.8 Configurações (`/admin/configuracoes`)
+### 3.8 Secretaria — WhatsApp (`/admin/configuracoes`)
 
-- **Número de WhatsApp da secretaria**: somente números, com código do país e DDD (ex.: `5511998877665`). É usado para montar o link `wa.me` da tela de sucesso.
-- **E-mail da secretaria**: é quem recebe os avisos automáticos de novo pedido.
+Acessível pelo menu **Configurações → Secretaria (WhatsApp)** *(somente administrador)*:
 
-Esses dados ficam no banco e são usados dinamicamente (nunca fixos no código).
+- **Número de WhatsApp da secretaria**: informe **apenas dígitos**, no formato **DDI + DDD + número** (ex.: `5511998877665`). É o número que **recebe os pedidos** — usado para montar o link `wa.me` da tela de sucesso.
+- O campo mostra o formato esperado no próprio exemplo e aceita somente números (letras e símbolos são descartados ao salvar).
+
+> O **e-mail** que recebe os avisos automáticos de novo pedido é configurado separadamente (não é alterado nesta tela).
 
 ---
 
@@ -232,16 +242,22 @@ Esses dados ficam no banco e são usados dinamicamente (nunca fixos no código).
 Antes. Pedido, e-mail e WhatsApp são eventos de um pedido que **já existe** no sistema. O WhatsApp é só uma mensagem pronta para você formalizar o aviso.
 
 **Posso passar do estoque disponível?**
-Não. Em três momentos o sistema confere o estoque: ao exibir o produto, ao adicionar ao carrinho e novamente na confirmação.
+Sim. A escola não é bloqueada pelo estoque e não vê a quantidade disponível. O estoque é conferido pela secretaria **na conclusão** do pedido: se faltar, o sistema avisa e não deixa concluir até o estoque ser corrigido.
 
 **Posso alterar a quantidade depois de adicionar?**
 Sim, no carrinho (“Atualizar”) e também voltando da revisão (“Voltar e corrigir”).
+
+**Por que apareceu a mensagem de sessão expirada ou de desconexão?**
+As sessões duram **24 horas** sem uso. Depois disso, ou ao clicar em **Sair**, o sistema mostra *“Sua sessão expirou”* / *“Você foi desconectado”* e pede o login novamente. Isso é normal e protege os dados.
+
+**Posso estar conectado como escola e como admin ao mesmo tempo?**
+Sim. A área da escola e o painel `/admin` usam **sessões independentes**. Você pode manter os dois abertos no mesmo navegador; sair de um **não** desconecta o outro.
 
 **Esqueci minha senha.**
 Na tela de login há o link **Esqueci a senha**: informe o e-mail cadastrado e defina uma nova senha (mínimo de 4 caracteres). Vale para escolas e para usuários do painel (administrador/supervisor). Se preferir, peça à secretaria que redefina a sua senha em **Escolas** → **Editar**.
 
 **Qual a diferença entre administrador e supervisor?**
-O supervisor usa o mesmo painel `/admin`, mas **não** vê os menus **Escolas** e **Usuários do sistema** (exclusivos do administrador).
+O supervisor usa o mesmo painel `/admin`, mas **não** vê o grupo **Configurações** do menu (Escolas, Usuários do sistema e Secretaria/WhatsApp), que é exclusivo do administrador.
 
 **Como a secretaria é avisada de um novo pedido?**
 Por e-mail automático e, adicionalmente, pela mensagem do WhatsApp que a escola envia.

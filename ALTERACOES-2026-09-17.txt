@@ -1,0 +1,212 @@
+================================================================================
+CENTRAL DE PEDIDOS ESCOLARES — REGISTRO DE ALTERAÇÕES
+Data: 17/09/2026
+Local: C:\laragon\www\educa-barao  (dev: http://educa-barao.test)
+================================================================================
+
+Este arquivo lista TUDO o que foi alterado/implementado nesta data. Para detalhes
+de uso consulte MANUAL-DO-USUARIO.md e, para detalhes técnicos,
+DOCUMENTACAO-TECNICA.md.
+
+
+================================================================================
+1. IMPORTAÇÃO/EXPORTAÇÃO CSV — REMOVIDA
+================================================================================
+- Removidas as rotas, os métodos e os botões de importar/exportar planilha de
+  produtos/estoque.
+- Excluída a view de importação (views/admin/produtos/estoque_importar.php).
+- Removidos helpers/consultas que só existiam para a importação:
+  findByNomeCategoria, buscarParaImportacao, zerarEstoqueExceto, normalizar_texto.
+- O estoque passou a ser atualizado produto a produto (formulário de edição).
+
+
+================================================================================
+2. CORREÇÃO DE BUG EM PRODUÇÃO
+================================================================================
+- Erro "TypeError" no envio de e-mail (NotificacaoService) por passar um int para
+  a função e(), que só aceitava string.
+  - Corrigido com cast: e((string) (int) $item['quantidade']).
+  - A função global e() foi ampliada para aceitar int|float|string|null
+    (app/Core/helpers.php).
+- Testado simulando SMTP (sem disparar e-mail real) — sem TypeError.
+
+
+================================================================================
+3. FLUXO DA ESCOLA — SEM VISIBILIDADE/CONTROLE DE ESTOQUE
+================================================================================
+- Catálogo (views/escola/catalogo.php):
+  - Não mostra mais "Disponível: X" nem etiqueta "Indisponível".
+  - Todo produto ativo aparece com campo de quantidade e botão Adicionar,
+    independentemente do estoque.
+- Carrinho (views/escola/carrinho.php):
+  - Removida a coluna "Disponível" e o limite "max" do campo de quantidade.
+- Backend sem travas de estoque:
+  - CarrinhoController::adicionar/atualizar não validam mais estoque.
+  - PedidoController::confirmar não valida mais estoque (corrigido também um bug
+    de variável indefinida $pedidoService).
+  - Removido PedidoService::validarEstoque.
+- O estoque agora é conferido somente pela secretaria, na conclusão do pedido.
+
+
+================================================================================
+4. BAIXA DE ESTOQUE SOMENTE NA CONCLUSÃO DO PEDIDO
+================================================================================
+- Ao confirmar o pedido, o estoque NÃO é mais debitado (PedidoService::confirmar
+  apenas cria o pedido com status "realizado").
+- A baixa acontece quando o admin marca o pedido como "concluido":
+  - Pedido::debitarItensEstoque() / restaurarItensEstoque()
+    (transação única em Pedido::movimentarItensEstoque).
+  - Baixa atômica: UPDATE ... AND quantidade_estoque >= ? — impede estoque
+    negativo; se faltar saldo, a operação é cancelada.
+- Ao SAIR de "concluido" (voltar para em andamento/cancelado), o estoque é
+  restaurado automaticamente.
+- Exclusão de pedido (Pedido::excluirComRestauro) só restaura o estoque se o
+  pedido estava "concluido".
+- Removido o método Produto::debitarEstoque (não mais usado).
+
+
+================================================================================
+5. BLOQUEIO DE CONCLUSÃO SEM ESTOQUE (ADMIN)
+================================================================================
+- Pedido::problemasDeEstoqueParaConclusao() gera a lista de impedimentos:
+  - "Produto: estoque zerado. Atualize o estoque para concluir o pedido."
+  - "Produto: estoque insuficiente (pedido: N, disponível: M)."
+- Admin\PedidoController::updateStatus:
+  - Antes de concluir, valida os itens. Se houver problema, NÃO altera o status,
+    mostra o alerta "Não foi possível concluir o pedido..." e lista os itens
+    (flash 'pedido_detalhes').
+  - Só conclui se der para dar baixa no estoque.
+- Ajuste de suporte: flash() passou a aceitar string OU array (app/Core/Controller.php)
+  para exibir listas de alerta no modal.
+
+
+================================================================================
+6. TELA ADMIN DE ESTOQUE E PRODUTOS
+================================================================================
+- views/admin/produtos/estoque.php e views/admin/produtos/index.php:
+  - Campo de estoque agora é SOMENTE LEITURA (não edita mais na lista).
+  - Etiquetas de situação: "Ok" (>= 7), "Baixo" (1 a 6), "Zerado" (0) e
+    "Faltando N" (estoque negativo, em vermelho).
+  - Limite de estoque baixo definido em LIMITE_BAIXO_ESTOQUE = 7.
+- Filtros da tela /admin/estoque:
+  - "Todos os produtos (maior para o menor)" (padrão)
+  - "Todos os produtos (menor para o maior)"
+  - "Estoque baixo (menor que 7)"
+  - "Estoque zerado"
+  - Produto::paginarEstoque() com situacao = todos | asc | baixo | zerado.
+- Removido o ajuste rápido de estoque (campo + botão OK):
+  - Rota POST /admin/produtos/estoque/{id}.
+  - ProdutoController::ajustarEstoque.
+  - Produto::ajustarEstoque.
+  - Bloco JS "js-ajuste-estoque" (public/assets/js/app.js).
+  - O estoque é editado apenas pelo formulário do produto (Editar).
+
+
+================================================================================
+7. TELA DE SUCESSO E MENSAGEM DO WHATSAPP
+================================================================================
+- views/escola/sucesso.php com novo texto:
+  "Pedido registrado com sucesso!" / "Seu pedido é o #N." / aviso de e-mail à
+  Secretaria / instrução para enviar pelo WhatsApp da Secretaria / card "Mensagem:".
+- NotificacaoService::montarMensagemWhatsApp com novo formato:
+  "Olá! A escola {escola} realizou o pedido #{n} pelo Sistema de Pedidos
+   Escolares."
+  "Produtos solicitados:" com itens "• {qtd}x {produto}"
+  "Aguardamos o recebimento e o processamento do pedido."
+  "Obrigado!"
+
+
+================================================================================
+8. CONFIGURAÇÕES — WHATSAPP DA SECRETARIA
+================================================================================
+- Página /admin/configuracoes agora tem SOMENTE o campo "Número de WhatsApp da
+  secretaria".
+  - Visível e gravável APENAS para administrador (Auth::isAdmin()); supervisor
+    não vê nem consegue salvar por POST direto.
+  - Placeholder com o formato: "Ex.: 5511998877665 — DDI + DDD + número, somente
+    dígitos" + texto explicativo.
+  - Ao salvar, remove qualquer caractere que não seja dígito.
+- Campo de e-mail da secretaria REMOVIDO desta tela (o e-mail é configurado
+  separadamente; continua sendo usado pelo envio de notificações).
+- Menu lateral (admin): grupo "Configurações" ganhou o item
+  "Secretaria (WhatsApp)" -> /admin/configuracoes (somente admin). O submenu abre
+  automaticamente nessa página.
+- ConfiguracaoController::update passou a gravar apenas whatsapp_secretaria.
+
+
+================================================================================
+9. SESSÕES — ESCOLA E ADMIN SIMULTÂNEOS + TEMPO MAIOR + MENSAGENS
+================================================================================
+Problema: estar logado em /admin desconectava a escola e vice-versa (uma única
+sessão compartilhada). Além disso o tempo de sessão era curto e o logout não
+avisava nada.
+
+- app/Core/Session.php reescrito:
+  - DUAS sessões independentes (dois cookies):
+      SESS_EDUCA_ESCOLA  (área da escola)
+      SESS_EDUCA_ADMIN   (painel /admin)
+  - A área é detectada pela URL (Session::areaDaRequisicao()).
+  - Tempo de sessão aumentado para 24h (TEMPO_SESSAO = 86400), com renovação a
+    cada acesso (last_activity) e expiração por inatividade.
+  - Cookie httponly + samesite=Lax (+ secure em HTTPS).
+  - Logout destrói apenas a sessão da área ativa (não afeta a outra).
+- public/index.php agora chama Session::iniciar(Session::areaDaRequisicao()).
+- app/Core/Auth.php (redirectToLogin): quando há cookie de sessão mas o login já
+  não vale, mostra "Sua sessão expirou. Faça login novamente.".
+- Logout (escola e admin): redireciona com ?saiu=1 e exibe
+  "Você foi desconectado. Faça login novamente.".
+- Testado (curl): login admin + login escola ao mesmo tempo; logout do admin
+  mantém a escola logada e vice-versa; mensagens exibidas corretamente.
+- ATENÇÃO: como o nome do cookie mudou, todos os usuários precisam fazer login
+  UMA vez novamente após a publicação.
+
+
+================================================================================
+10. DOCUMENTAÇÃO
+================================================================================
+- MANUAL-DO-USUARIO.md atualizado: catálogo sem estoque, baixa só na conclusão,
+  regras de conclusão, tela de estoque (filtros/badges/readonly), configurações
+  (WhatsApp admin-only), mensagens de sessão e FAQ.
+- DOCUMENTACAO-TECNICA.md atualizado: sessões por área, rotas (remoção do ajuste
+  rápido de estoque), Services (PedidoService/NotificacaoService/CarrinhoService),
+  baixa/restauração de estoque, gestão de estoque (limite 7, filtros, readonly),
+  segurança e roadmap.
+- Este arquivo (ALTERACOES-2026-09-17.txt) criado com o resumo de tudo.
+
+
+================================================================================
+ARQUIVOS PRINCIPAIS TOCADOS
+================================================================================
+app/Core/Session.php
+app/Core/Auth.php
+app/Core/Controller.php
+app/Core/helpers.php
+app/Models/Pedido.php
+app/Models/Produto.php
+app/Services/PedidoService.php
+app/Services/NotificacaoService.php
+app/Controllers/AuthController.php
+app/Controllers/Admin/AuthController.php
+app/Controllers/Admin/PedidoController.php
+app/Controllers/Admin/ProdutoController.php
+app/Controllers/Admin/ConfiguracaoController.php
+app/Controllers/CarrinhoController.php
+app/Controllers/PedidoController.php
+routes/web.php
+public/index.php
+public/assets/js/app.js
+public/assets/css/app.css
+views/escola/catalogo.php
+views/escola/carrinho.php
+views/escola/sucesso.php
+views/admin/produtos/estoque.php
+views/admin/produtos/index.php
+views/admin/produtos/form.php
+views/admin/configuracoes/index.php
+views/layouts/admin_header.php
+MANUAL-DO-USUARIO.md
+DOCUMENTACAO-TECNICA.md
+
+================================================================================
+FIM
+================================================================================

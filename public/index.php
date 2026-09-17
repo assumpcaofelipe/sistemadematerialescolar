@@ -13,7 +13,7 @@ header('Expires: 0');
 use App\Core\Session;
 use App\Core\Router;
 
-Session::start();
+Session::iniciar(Session::areaDaRequisicao());
 
 $routes = require __DIR__ . '/../routes/web.php';
 $router = new Router();

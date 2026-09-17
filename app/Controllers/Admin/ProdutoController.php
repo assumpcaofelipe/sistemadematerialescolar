@@ -15,7 +15,7 @@ class ProdutoController extends Controller
     private const POR_PAGINA = 20;
     private const MAX_TAMANHO_IMAGEM = 2 * 1024 * 1024;
     private const EXTENSOES_IMAGEM = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-    private const LIMITE_BAIXO_ESTOQUE = 5;
+    private const LIMITE_BAIXO_ESTOQUE = 7;
 
     public function __construct()
     {
@@ -63,8 +63,8 @@ class ProdutoController extends Controller
         $busca = trim((string) ($_GET['busca'] ?? ''));
         $categoriaId = (int) ($_GET['categoria'] ?? 0) ?: null;
         $situacao = trim((string) ($_GET['situacao'] ?? ''));
-        if (!in_array($situacao, ['', 'baixo', 'zerado'], true)) {
-            $situacao = '';
+        if (!in_array($situacao, ['todos', 'asc', 'baixo', 'zerado'], true)) {
+            $situacao = 'todos';
         }
         $pagina = pagina_atual();
 
@@ -166,26 +166,6 @@ class ProdutoController extends Controller
         }
 
         $this->redirect('/admin/produtos');
-    }
-
-    public function ajustarEstoque(int $id): void
-    {
-        if (!Csrf::validate()) {
-            $this->jsonResponse(['ok' => false, 'mensagem' => 'Sessão expirada.'], 419);
-        }
-
-        $quantidade = (int) ($_POST['quantidade'] ?? -1);
-        if ($quantidade < 0) {
-            $this->jsonResponse(['ok' => false, 'mensagem' => 'Quantidade inválida.'], 422);
-        }
-
-        $model = new Produto();
-        if (!$model->find($id)) {
-            $this->jsonResponse(['ok' => false, 'mensagem' => 'Produto não encontrado.'], 404);
-        }
-
-        $model->ajustarEstoque($id, $quantidade);
-        $this->jsonResponse(['ok' => true, 'quantidade' => $quantidade]);
     }
 
     private function dadosDoFormulario(): array

@@ -213,10 +213,6 @@ h1, h2, h3, h4, h5, h6,
     font-size: .95rem;
 }
 
-.produto-indisponivel {
-    opacity: .72;
-}
-
 .paginacao .page-link {
     color: var(--azul-primario);
 }

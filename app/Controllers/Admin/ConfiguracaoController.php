@@ -31,11 +31,11 @@ class ConfiguracaoController extends Controller
         }
 
         $model = new Configuracao();
-        $whatsapp = preg_replace('/\D/', '', (string) ($_POST['whatsapp'] ?? ''));
-        $email = trim((string) ($_POST['email'] ?? ''));
 
-        $model->set('whatsapp_secretaria', $whatsapp);
-        $model->set('email_secretaria', $email);
+        if (Auth::isAdmin()) {
+            $whatsapp = preg_replace('/\D/', '', (string) ($_POST['whatsapp'] ?? ''));
+            $model->set('whatsapp_secretaria', $whatsapp);
+        }
 
         $this->flash('success', 'Configurações salvas.');
         $this->redirect('/admin/configuracoes');

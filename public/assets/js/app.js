@@ -94,25 +94,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // Ajuste rápido de estoque (admin)
-    document.querySelectorAll('.js-ajuste-estoque').forEach(function (form) {
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
-            var btn = form.querySelector('button[type="submit"]');
-            var input = form.querySelector('input[name="quantidade"]');
-
-            enviar(form, form.action, function () {
-                btn.textContent = '✓';
-                input.classList.remove('is-invalid');
-                setTimeout(function () { btn.textContent = 'OK'; }, 1200);
-            }, function (msg) {
-                btn.textContent = '!';
-                input.classList.add('is-invalid');
-                mostrarAlerta(msg, 'danger');
-            });
-        });
-    });
-
     // Atualiza o contador do carrinho na sidebar
     function atualizarBotaoCarrinho(total) {
         var el = document.getElementById('navCarrinho');

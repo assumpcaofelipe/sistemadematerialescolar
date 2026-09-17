@@ -73,7 +73,6 @@ return [
         '/admin/produtos/salvar' => [ProdutoController::class, 'store'],
         '/admin/produtos/atualizar/{id}' => [ProdutoController::class, 'update'],
         '/admin/produtos/excluir/{id}' => [ProdutoController::class, 'destroy'],
-        '/admin/produtos/estoque/{id}' => [ProdutoController::class, 'ajustarEstoque'],
 
         '/admin/usuarios/salvar' => [UsuarioController::class, 'store'],
         '/admin/usuarios/atualizar/{id}' => [UsuarioController::class, 'update'],

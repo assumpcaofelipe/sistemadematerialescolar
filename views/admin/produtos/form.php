@@ -44,7 +44,7 @@ $url = $produto
         <div class="row">
             <div class="col-12 col-md-6 mb-3">
                 <label class="form-label" for="quantidade_estoque">Estoque</label>
-                <input type="number" class="form-control" id="quantidade_estoque" name="quantidade_estoque" min="0"
+                <input type="number" class="form-control" id="quantidade_estoque" name="quantidade_estoque" step="1"
                        value="<?= (int) ($produto['quantidade_estoque'] ?? 0) ?>">
             </div>
             <div class="col-12 col-md-6 mb-3">

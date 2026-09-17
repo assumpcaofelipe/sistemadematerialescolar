@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Core\Database;
+use App\Models\Produto;
 
 class Pedido
 {
@@ -46,6 +47,41 @@ class Pedido
         );
         $stmt->execute([$pedidoId]);
         return $stmt->fetchAll();
+    }
+
+    /**
+     * Verifica se há estoque suficiente (e não zerado) para todos os
+     * itens do pedido.
+     *
+     * @return array<int, string> Lista de problemas (vazia = ok)
+     */
+    public function problemasDeEstoqueParaConclusao(int $pedidoId): array
+    {
+        $itens = $this->itens($pedidoId);
+        if (!$itens) {
+            return ['O pedido não possui itens.'];
+        }
+
+        $produtoModel = new Produto();
+        $problemas = [];
+
+        foreach ($itens as $item) {
+            $qtd = (int) $item['quantidade'];
+            $nome = (string) $item['produto_nome'];
+
+            $produto = $produtoModel->find((int) $item['produto_id']);
+            $estoque = $produto ? (int) $produto['quantidade_estoque'] : 0;
+
+            if (!$produto) {
+                $problemas[] = "{$nome}: produto não encontrado.";
+            } elseif ($estoque <= 0) {
+                $problemas[] = "{$nome}: estoque zerado. Atualize o estoque para concluir o pedido.";
+            } elseif ($qtd > $estoque) {
+                $problemas[] = "{$nome}: estoque insuficiente (pedido: {$qtd}, disponível: {$estoque}).";
+            }
+        }
+
+        return $problemas;
     }
 
     public function all(array $filtros = []): array
@@ -117,26 +153,75 @@ class Pedido
         return $stmt->execute([$status, $id]);
     }
 
-    /**
-     * Exclui o pedido em transação, devolvendo ao estoque as
-     * quantidades dos itens (itens_pedido cai em cascata).
-     */
-    public function excluirComRestauro(int $id): bool
+    public function debitarItensEstoque(int $pedidoId): bool
+    {
+        return $this->movimentarItensEstoque($pedidoId, -1);
+    }
+
+    public function restaurarItensEstoque(int $pedidoId): bool
+    {
+        return $this->movimentarItensEstoque($pedidoId, +1);
+    }
+
+    private function movimentarItensEstoque(int $pedidoId, int $sinal): bool
     {
         $db = Database::getInstance();
         $db->beginTransaction();
 
         try {
-            $itens = $this->itens($id);
+            $this->movimentarSemTransacao($pedidoId, $sinal);
+            $db->commit();
+            return true;
+        } catch (\Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            error_log('[Pedido] Falha ao movimentar estoque: ' . $e->getMessage());
+            return false;
+        }
+    }
 
-            $stmtEstoque = $this->db->prepare(
-                'UPDATE produtos SET quantidade_estoque = quantidade_estoque + ? WHERE id = ?'
-            );
-            foreach ($itens as $item) {
-                $stmtEstoque->execute([
-                    (int) $item['quantidade'],
-                    (int) $item['produto_id'],
-                ]);
+    private function movimentarSemTransacao(int $pedidoId, int $sinal): void
+    {
+        $itens = $this->itens($pedidoId);
+        $stmtRestaurar = $this->db->prepare(
+            'UPDATE produtos SET quantidade_estoque = quantidade_estoque + ? WHERE id = ?'
+        );
+        $stmtDebitar = $this->db->prepare(
+            'UPDATE produtos SET quantidade_estoque = quantidade_estoque - ?
+             WHERE id = ? AND quantidade_estoque >= ?'
+        );
+
+        foreach ($itens as $item) {
+            $qtd = (int) $item['quantidade'];
+            $produtoId = (int) $item['produto_id'];
+
+            if ($sinal < 0) {
+                $stmtDebitar->execute([$qtd, $produtoId, $qtd]);
+                if ($stmtDebitar->rowCount() === 0) {
+                    throw new \RuntimeException("Estoque insuficiente para o produto #{$produtoId}");
+                }
+            } else {
+                $stmtRestaurar->execute([$qtd, $produtoId]);
+            }
+        }
+    }
+
+    /**
+     * Exclui o pedido em transação. O estoque é devolvido apenas se
+     * o pedido já tiver dado baixa (status = concluido).
+     */
+    public function excluirComRestauro(int $id): bool
+    {
+        $pedido = $this->find($id);
+        $restaurar = $pedido !== null && $pedido['status'] === 'concluido';
+
+        $db = Database::getInstance();
+        $db->beginTransaction();
+
+        try {
+            if ($restaurar) {
+                $this->movimentarSemTransacao($id, +1);
             }
 
             $stmt = $this->db->prepare('DELETE FROM pedidos WHERE id = ?');

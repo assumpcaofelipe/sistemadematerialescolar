@@ -84,7 +84,9 @@ class PedidoController extends Controller
         }
 
         if ($model->excluirComRestauro((int) $id)) {
-            $this->flash('success', 'Pedido #' . (int) $pedido['numero'] . ' excluído e estoque restaurado.');
+            $restaurou = $pedido['status'] === 'concluido';
+            $this->flash('success', 'Pedido #' . (int) $pedido['numero'] . ' excluído.'
+                . ($restaurou ? ' Estoque restaurado.' : ''));
         } else {
             $this->flash('error', 'Não foi possível excluir o pedido.');
         }
@@ -112,8 +114,36 @@ class PedidoController extends Controller
             $this->redirect('/admin/pedidos');
         }
 
+        $statusAnterior = (string) $pedido['status'];
+
+        if ($status === 'concluido' && $statusAnterior !== 'concluido') {
+            $problemas = $model->problemasDeEstoqueParaConclusao((int) $id);
+            if ($problemas) {
+                $this->flash('pedido_erro', 'Não foi possível concluir o pedido. Atualize o estoque e tente novamente.');
+                $this->flash('pedido_detalhes', $problemas);
+                $this->redirect('/admin/pedidos/' . (int) $pedido['numero']);
+            }
+
+            if (!$model->debitarItensEstoque((int) $id)) {
+                $this->flash('error', 'Não foi possível dar baixa no estoque. Status não alterado.');
+                $this->redirect('/admin/pedidos/' . (int) $pedido['numero']);
+            }
+        } elseif ($statusAnterior === 'concluido' && $status !== 'concluido') {
+            if (!$model->restaurarItensEstoque((int) $id)) {
+                $this->flash('error', 'Não foi possível restaurar o estoque. Status não alterado.');
+                $this->redirect('/admin/pedidos/' . (int) $pedido['numero']);
+            }
+        }
+
         $model->atualizarStatus($id, $status);
-        $this->flash('success', 'Status do pedido atualizado.');
+
+        if ($status === 'concluido' && $statusAnterior !== 'concluido') {
+            $this->flash('success', 'Pedido concluído. Estoque atualizado (baixa efetuada).');
+        } elseif ($statusAnterior === 'concluido' && $status !== 'concluido') {
+            $this->flash('success', 'Status atualizado. Estoque restaurado.');
+        } else {
+            $this->flash('success', 'Status do pedido atualizado.');
+        }
         $this->redirect('/admin/pedidos/' . (int) $pedido['numero']);
     }
 }

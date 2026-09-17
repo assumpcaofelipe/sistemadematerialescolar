@@ -121,6 +121,10 @@ class Auth
 
     private static function redirectToLogin(): void
     {
+        if (isset($_COOKIE[session_name()])) {
+            $_SESSION['flash']['auth_error'] = 'Sua sessão expirou. Faça login novamente.';
+        }
+
         $uri = $_SERVER['REQUEST_URI'];
         if (str_starts_with($uri, '/admin')) {
             header('Location: /admin/login');

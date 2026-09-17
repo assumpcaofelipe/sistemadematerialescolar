@@ -48,7 +48,7 @@ abstract class Controller
         return $_SESSION['old'][$key] ?? $default;
     }
 
-    protected function flash(string $key, string $message): void
+    protected function flash(string $key, string|array $message): void
     {
         $_SESSION['flash'][$key] = $message;
     }

@@ -1,7 +1,9 @@
 <?php
 $pageTitle = $pageTitle ?? 'Painel Administrativo';
 $rota = rtrim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?: '/', '/') ?: '/';
-$configAberto = str_starts_with($rota, '/admin/usuarios/novo') || str_starts_with($rota, '/admin/usuarios/admin');
+$configAberto = str_starts_with($rota, '/admin/configuracoes')
+    || str_starts_with($rota, '/admin/usuarios/novo')
+    || str_starts_with($rota, '/admin/usuarios/admin');
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -65,6 +67,11 @@ $configAberto = str_starts_with($rota, '/admin/usuarios/novo') || str_starts_wit
                     <span class="sidebar-chevron ms-auto"><?= icon('chevron-down', '16', '16') ?></span>
                 </button>
                 <ul class="sidebar-submenu<?= $configAberto ? ' aberto' : '' ?>" id="submenuConfiguracoes">
+                    <li>
+                        <a class="<?= str_starts_with($rota, '/admin/configuracoes') ? 'active' : '' ?>" href="/admin/configuracoes">
+                            <?= icon('message-circle', '16', '16', 'me-2') ?>Secretaria (WhatsApp)
+                        </a>
+                    </li>
                     <li>
                         <a class="<?= $rota === '/admin/usuarios/novo' ? 'active' : '' ?>" href="/admin/usuarios/novo">
                             <?= icon('user-plus', '16', '16', 'me-2') ?>Adicionar escolas

@@ -46,14 +46,14 @@ views/                 Layouts + views da escola e do admin
 - Carrega as funções globais de `app/Core/helpers.php` (`e()`, `slugify()`, `csrf_field()`, …);
 - Registra autoload PSR-4 simples das classes em `app/` (Namespace `App\`).
 
-> O `config/config.php` (define `APP_NAME`, `BASE_URL`, fuso horário e lê o `.env`) é carregado pelo `public/index.php`, junto com `Session::start()` e o `Router`.
+> O `config/config.php` (define `APP_NAME`, `BASE_URL`, fuso horário e lê o `.env`) é carregado pelo `public/index.php`, junto com `Session::iniciar(Session::areaDaRequisicao())` e o `Router`.
 
 > ⚠️ **Importante:** o `helpers.php` é **obrigatório** — sem ele funções como `e()`, `slugify()` e `csrf_field()` ficam undefined.
 
 ### `app/Core/helpers.php` — globais
 | Função | O que faz |
 |---|---|
-| `e($valor)` | `htmlspecialchars` (XSS-safe) para impressão **sempre** que houver saída dinâmica |
+| `e($valor)` | `htmlspecialchars` (XSS-safe) para impressão **sempre** que houver saída dinâmica. Aceita `int\|float\|string\|null` (faz cast para string) |
 | `slugify($texto)` | Gera slug permitindo `[a-z0-9-]`, limite de 180 (suporta todas as strings do catálogo, que vêm com acentos/“ç”) |
 | `csrf_field()` | Retorna `<input type="hidden" name="csrf_token" value="...">` |
 | `pagina_atual()` | Lê `$_GET['pagina']` (mín. 1) |
@@ -117,8 +117,8 @@ views/                 Layouts + views da escola e do admin
 | quantidade | int |
 
 **`configuracoes`** (chave/valor: id, chave unique, valor, updated_at)
-- `whatsapp_secretaria`
-- `email_secretaria`
+- `whatsapp_secretaria` — **editável** pelo admin em `/admin/configuracoes` (usado no link `wa.me`);
+- `email_secretaria` — destinatário dos avisos automáticos; **continua sendo lido** por `NotificacaoService::emailNovoPedido`, mas **não é mais editado** pela tela de configurações (configurado por fora).
 
 ### Convenções
 - **Nome do produto é “empacotado” no item** (`produto_nome`): se o produto for excluído depois, o histórico do pedido continua legível.
@@ -136,7 +136,7 @@ A assinatura é: `$router->get('/caminho', Classe::class, 'metodo')` e `$router-
 | `/` | GET | `AuthController::showLogin` | — |
 | `/login` | POST | `AuthController::login` | — |
 | `/recuperar-senha` | POST | `AuthController::recuperarSenha` (JSON) | — |
-| `/logout` | GET | `AuthController::logout` | escola |
+| `/logout` | GET | `AuthController::logout` (redireciona para `/?saiu=1`) | escola |
 | `/catalogo` | GET | `CatalogoController::index` | escola |
 | `/carrinho` | GET | `CarrinhoController::index` | escola |
 | `/carrinho/adicionar` | POST | `CarrinhoController::adicionar` (JSON) | escola + CSRF |
@@ -149,7 +149,7 @@ A assinatura é: `$router->get('/caminho', Classe::class, 'metodo')` e `$router-
 | `/pedidos/{numero}` | GET | `PedidoController::detalhe` | escola |
 | `/admin/login` | GET/POST | `Admin\AuthController::showLogin/login` | — |
 | `/admin/recuperar-senha` | POST | `Admin\AuthController::recuperarSenha` (JSON) | — |
-| `/admin/logout` | GET | `Admin\AuthController::logout` | painel |
+| `/admin/logout` | GET | `Admin\AuthController::logout` (redireciona para `/admin/login?saiu=1`) | painel |
 | `/admin`, `/admin/dashboard` | GET | `Admin\DashboardController::index` (filtros `periodo`/`status`/`escola`/`categoria` + Chart.js) | painel |
 | `/admin/pedidos` | GET | `Admin\PedidoController::index` (filtros status + escola + paginação) | painel |
 | `/admin/pedidos/{numero}` | GET | `Admin\PedidoController::show` | painel |
@@ -159,7 +159,6 @@ A assinatura é: `$router->get('/caminho', Classe::class, 'metodo')` e `$router-
 | `/admin/produtos/novo` | GET/POST | `Admin\ProdutoController::create/store` | painel + CSRF |
 | `/admin/produtos/editar/{id}` | GET/POST | `Admin\ProdutoController::edit/update` | painel + CSRF |
 | `/admin/produtos/excluir/{id}` | POST | `Admin\ProdutoController::destroy` | painel + CSRF |
-| `/admin/produtos/estoque/{id}` | POST | `Admin\ProdutoController::ajustarEstoque` (JSON) | painel + CSRF |
 | `/admin/estoque` | GET (`?busca`, `?categoria`, `?situacao`) | `Admin\ProdutoController::estoque` | painel |
 | `/admin/categorias` | GET/POST | `Admin\CategoriaController` | painel + CSRF |
 | `/admin/usuarios` | GET/POST | `Admin\UsuarioController` | **admin** + CSRF |
@@ -167,9 +166,11 @@ A assinatura é: `$router->get('/caminho', Classe::class, 'metodo')` e `$router-
 | `/admin/usuarios/admin/novo` | GET/POST | `Admin\UsuarioController::createAdmin/storeAdmin` | **admin** + CSRF |
 | `/admin/usuarios/admin/editar/{id}` | GET/POST | `Admin\UsuarioController::editAdmin/updateAdmin` (pode trocar tipo/status) | **admin** + CSRF |
 | `/admin/usuarios/admin/excluir/{id}` | POST | `Admin\UsuarioController::destroyAdmin` (permissões: não exclui a si, mantém ≥1 admin) | **admin** + CSRF |
-| `/admin/configuracoes` | GET/POST | `Admin\ConfiguracaoController::index/update` | painel + CSRF |
+| `/admin/configuracoes` | GET/POST | `Admin\ConfiguracaoController::index/update` (campo WhatsApp **somente admin**) | painel + CSRF |
 
-**Papéis ("Proteção"):** `escola` = contas de escola; `painel` = **admin ou supervisor** (`Auth::requireAcessoAdmin()`); **admin** = somente administrador (`Auth::requireAdmin()`) — aplicado ao módulo de usuários e escolas. A sidebar oculta "Escolas"/"Configurações" para supervisores.
+**Papéis ("Proteção"):** `escola` = contas de escola; `painel` = **admin ou supervisor** (`Auth::requireAcessoAdmin()`); **admin** = somente administrador (`Auth::requireAdmin()`) — aplicado ao módulo de usuários e escolas. A sidebar oculta o grupo **Configurações** (Escolas, Usuários do sistema e Secretaria/WhatsApp) para supervisores. Em `/admin/configuracoes`, o campo/gravação do WhatsApp é ainda validado por `Auth::isAdmin()` dentro do controller.
+
+**Sessões por área:** a URL decide qual cookie de sessão é usado (`SESS_EDUCA_ADMIN` em `/admin*`, `SESS_EDUCA_ESCOLA` nas demais). Por isso os dois painéis podem ficar logados **ao mesmo tempo** no mesmo navegador e o logout de um não afeta o outro (detalhes no item 5, `Session`).
 
 O `Router::dispatch` suporta dois placeholders: `{id}` e `{numero}` (padrão `([0-9]+)`), coercidos para `int` antes de chamar o método. Rotas inexistentes → view `404.php`. Detalhes: `routes/web.php:1`, `app/Core/Router.php`.
 
@@ -196,19 +197,26 @@ O `Router::dispatch` suporta dois placeholders: `{id}` e `{numero}` (padrão `([
 - `viewEscola($arquivo, $dados)` — injeta `usuario` logado e `escolaCarrinhoItens` antes de renderizar a view da escola;
 - `redirect($caminho)`;
 - `jsonResponse($dados, $status)` com `Content-Type: application/json`;
-- `flash($chave, $mensagem)` / `getFlash($chave)` (lê e remove) e `old($chave, $default)`;
+- `flash($chave, $mensagem)` / `getFlash($chave)` (lê e remove) — a mensagem pode ser `string` **ou `array`** (array vira lista no modal, usado por `pedido_detalhes`) — e `old($chave, $default)`;
 - `sanitize($texto)`.
 
-### `app/Core/Session.php`
-- `start()` (uma vez), `set/get/remove/has`, `flash($chave,$valor)` + `getFlash($chave)` (lê e remove);
-- Configura cookie com `httponly`, `samesite=Lax`;
-- As mensagens `flash` ficam em `$_SESSION['flash']` e são exibidas como **modal Bootstrap** pelo partial `views/layouts/alertas.php`, incluído nos footers (`admin_footer.php`/`escola_footer.php`) e nas páginas de login.
+### `app/Core/Session.php` — sessões separadas por área
+- Duas sessões independentes (dois cookies): **`SESS_EDUCA_ESCOLA`** (área da escola) e **`SESS_EDUCA_ADMIN`** (painel). A área é resolvida pela URL (`/admin*` → admin; resto → escola) em `areaDaRequisicao()`;
+- `iniciar($area)` fecha qualquer sessão ativa, define `session_name()`, aplica `session.gc_maxlifetime` e faz `session_start()`. Chamado **uma vez** no front controller: `Session::iniciar(Session::areaDaRequisicao())`;
+- **Tempo de vida**: `TEMPO_SESSAO = 86400` (24h), usado no cookie (`lifetime`) e no `gc_maxlifetime`. Renovação deslizante: `$_SESSION['last_activity']` é atualizado a cada request; se `expirada()` (mais de 24h sem uso), a sessão é limpa, derrubando o login;
+- Cookie com `httponly`, `samesite=Lax` e `secure` quando HTTPS;
+- `set/get/remove/has`, `regenerateId()`, `destroy()` (limpa dados e expira o cookie da **área ativa**, sem tocar na outra);
+- `areaAtiva()` informa a área corrente. Permite **acessos simultâneos** de escola e admin e logout independente;
+- As mensagens `flash` ficam em `$_SESSION['flash']` (da sessão da área) e são exibidas como **modal Bootstrap** pelo partial `views/layouts/alertas.php`, incluído nos footers (`admin_footer.php`/`escola_footer.php`) e nas páginas de login.
+
+> ⚠️ Ao subir esta versão, os cookies antigos (`PHPSESSID`) deixam de valer — todos precisam logar **uma vez** de novo.
 
 ### `app/Core/Auth.php`
 - Constantes de papel: `TIPO_ESCOLA`, `TIPO_ADMIN`, `TIPO_SUPERVISOR`;
 - `login(Usuario)`, `logout()`, `check()`, `user()` (com cache estático por request), `id()`;
 - Verificadores: `isEscola()`, `isAdmin()`, `isSupervisor()`, `isAdminArea()` (admin **ou** supervisor);
-- Guards: `requireEscola()`, `requireAdmin()` (admin estrito), `requireAcessoAdmin()` (admin ou supervisor) — redirecionam para o login se não autenticado com o papel exigido;
+- Guards: `requireEscola()`, `requireAdmin()` (admin estrito), `requireAcessoAdmin()` (admin ou supervisor) — redirecionam para o login da área se não autenticado com o papel exigido;
+- `redirectToLogin()`: se existir o **cookie da sessão da área** (ou seja, havia sessão) grava `flash('auth_error', 'Sua sessão expirou. Faça login novamente.')` antes de redirecionar;
 - No login: `session_regenerate_id(true)`.
 
 ### Gestão de usuários do sistema (`Admin\UsuarioController`)
@@ -232,24 +240,28 @@ O `Router::dispatch` suporta dois placeholders: `{id}` e `{numero}` (padrão `([
 
 ### `CarrinhoService`
 - Carrinho fica **na sessão**: `$_SESSION['carrinho'][$produto_id] = quantidade`;
-- `proximoId()`, `quantidadeItem()`, `itens()` (monta com dados do produto), `totalItens()`, `vazio()`;
-- Associado sempre ao **usuário logado** (carrega/busca pela sessão do usuário);
-- `atualizarQuantidade()` respeita o limite do estoque.
+- `adicionar()`, `atualizar()` (quantidade `<= 0` remove o item), `remover()`, `limpar()`, `totalItens()`, `vazio()`, `itensDetalhados()` (monta com `findMany`, preservando a ordem);
+- **Não há mais validação de estoque no carrinho** — a escola vê o catálogo sem saldo e pode pedir qualquer quantidade. O estoque é validado somente na **conclusão** do pedido pela secretaria.
 
-### `PedidoService::confirmar(array $itens, int $usuarioId): ?Pedido`
-Executa toda a transação de forma **atômica**:
+### `PedidoService::confirmar(int $usuarioId, array $itens): ?array`
+Cria o pedido **sem movimentar estoque**, de forma atômica:
 1. `BEGIN`;
-2. Gera o número: `SELECT COALESCE(MAX(numero), 2046) + 1` (com `FOR UPDATE` no último pedido para evitar corrida);
-3. Valida cada item: produto ativo, estoque suficiente (**`quando compra`** — re-leitura dentro da transação) — se falhar faz `ROLLBACK` e retorna null;
-4. `INSERT` pedido (status `realizado`) + `INSERT` de cada item (`produto_nome` = snapshot);
-5. `UPDATE produtos SET quantidade_estoque = quantidade_estoque - qtd` para cada item;
-6. `COMMIT`.
+2. Gera o número: `Pedido::ultimoNumero() + 1` (`COALESCE(MAX(numero), 2047) + 1` → primeiro pedido é **#2048**);
+3. `INSERT` do pedido (status `realizado`) + `INSERT` de cada item (`produto_nome` = snapshot);
+4. `COMMIT`; em erro faz `ROLLBACK` e retorna `null`.
 
-O controller em caso de `null` usa `flash('pedido_erro', ...)` e mostra a revisão com os produtos indisponíveis.
+O controller devolve a tela de sucesso com o número e o link de WhatsApp. **Nenhuma quantidade é debitada aqui.**
+
+### Baixa e restauração de estoque (`App\Models\Pedido`)
+- `debitarItensEstoque($pedidoId)` / `restaurarItensEstoque($pedidoId)` → `movimentarItensEstoque()` com transação única; o débito usa `UPDATE ... AND quantidade_estoque >= ?` e **lança exceção** se algum produto não tiver saldo (impede estoque negativo). Como o método já abre a transação, o débito ocorre **fora** da transação de criação do pedido;
+- `problemasDeEstoqueParaConclusao($pedidoId)` — lista de mensagens (`array`) quando algum item está sem produto, **zerado** ou com estoque **insuficiente** (`pedido: N, disponível: M`);
+- `excluirComRestauro($id)` — exclui o pedido em transação e **devolve o estoque apenas se o status era `concluido`**.
+- **Gatilho**: `Admin\PedidoController::updateStatus` — ao entrar em `concluido` valida `problemasDeEstoqueParaConclusao()`, mostra `flash('pedido_erro')` + `flash('pedido_detalhes', $problemas)` e **não** altera o status se houver problema; só então chama `debitarItensEstoque()`. Ao **sair** de `concluido` (ou cancelar/excluir), `restaurarItensEstoque()` devolve o saldo.
 
 ### `NotificacaoService`
-- `emailNovoPedido(Pedido, itens)` — PHPMailer (SMTP). **Guarda de ambiente:** se `MAIL_HOST` estiver vazio/placeholder (`seudominio`), **pula o envio** (sem travar o fluxo em dev). Falha ao enviar não derruba o pedido (`try/catch`).
-- `linkWhatsApp(Pedido, itens, numeroDestino)` — monta `https://wa.me/NUMERO?text=MENSAGEM` com `rawurlencode` + `%0A` para quebras de linha. Lê o número da tabela `configuracoes`; se ausente, usa `WHATSAPP_FALLBACK` do `.env`.
+- `emailNovoPedido(int $numero, string $escola, array $itens)` — PHPMailer (SMTP). **Guarda de ambiente:** se `MAIL_HOST` estiver vazio/placeholder (`seudominio`), **pula o envio** (sem travar o fluxo em dev). Falha ao enviar não derruba o pedido (`try/catch`). Usa `e((string) (int) ...)` para evitar `TypeError` em produção.
+- `montarMensagemWhatsApp(string $escola, int $numero, array $itens)` — monta a mensagem com o formato atual: *"Olá! A escola {escola} realizou o pedido #{n} pelo Sistema de Pedidos Escolares."*, lista `• {qtd}x {produto}`, *"Aguardamos o recebimento e o processamento do pedido."* e *"Obrigado!"*;
+- `linkWhatsApp(string $mensagem)` — retorna `https://wa.me/NUMERO?text=MENSAGEM` (`rawurlencode`). Lê o número da tabela `configuracoes`; se ausente, usa `WHATSAPP_FALLBACK` do `.env`.
 
 ---
 
@@ -277,13 +289,14 @@ O controller em caso de `null` usa `flash('pedido_erro', ...)` e mostra a revis�
 - `Pedido::escolasQueMaisPedem($limite, $dias, $status)` — top escolas excluindo cancelados;
 - `Produto::maisPedidos($limite, $dias, $status, $escolaId, $categoriaId)` — top por `SUM(ip.quantidade)`, **agrupando por snapshot** `ip.produto_nome` (funciona mesmo se o produto for excluído).
 
-> O acompanhamento de **estoque baixo/zerado** não fica no dashboard: está na página própria `/admin/estoque` (`Produto::paginarEstoque()`, filtros busca/categoria/situação, ajuste rápido via AJAX confirmado em modal — `LIMITE_BAIXO_ESTOQUE = 5`).
+> O acompanhamento de **estoque baixo/zerado** não fica no dashboard: está na página própria `/admin/estoque` (`Produto::paginarEstoque()`, filtros busca/categoria/situação, `LIMITE_BAIXO_ESTOQUE = 7`).
 
 ### Gestão de estoque (`/admin/estoque`)
 
-- Página `Admin\ProdutoController::estoque` (filtros busca/categoria/situação, paginação) lista produtos com estoque baixo/zerado (≤ `LIMITE_BAIXO_ESTOQUE = 5`);
-- **Ajuste por produto**: `POST /admin/produtos/estoque/{id}` (`ajustarEstoque`, JSON + CSRF) — formulário inline na própria linha;
-- Não há importação/exportação por CSV — o estoque é atualizado individualmente pela página de estoque ou no formulário de produto (`quantidade_estoque`).
+- Página `Admin\ProdutoController::estoque` lista **todos os produtos ativos** (busca + categoria + situação + paginação). `situacao` aceita `todos` (padrão, maior→menor), `asc` (menor→maior), `baixo` (`0 < qtd < 7`) e `zerado` (`qtd = 0`); valores fora da lista caem em `todos`;
+- A coluna **Situação** usa badges: `Ok` (≥7), `Baixo` (1–6), `Zerado` (0) e `Faltando N` (negativo, texto vermelho). O campo de estoque é **`readonly`** — não há mais ajuste rápido na lista (a rota `POST /admin/produtos/estoque/{id}` e `ajustarEstoque()` foram removidas);
+- A edição de estoque é feita no **formulário do produto** (`/admin/produtos/editar/{id}`, campo `quantidade_estoque`);
+- Não há importação/exportação por CSV.
 
 > Compatibilidade PHP 8.3: o projeto NÃO usa `mb_str_contains` (inexistente) — usar `str_contains`. Dados dos gráficos são sempre escapados/convertidos para int no PHP antes do `json_encode`.
 
@@ -296,7 +309,7 @@ O controller em caso de `null` usa `flash('pedido_erro', ...)` e mostra a revis�
 | SQL Injection | PDO prepared statements (sem concatenação) |
 | XSS | `e()` (htmlspecialchars) em toda saída dinâmica nas views |
 | CSRF | `csrf_field()` nos forms + endpoints AJAX validam token; admin valida no construtor |
-| Sessão | cookie `httponly` + `samesite=Lax`; `session_regenerate_id` no login |
+| Sessão | dois cookies por área (`SESS_EDUCA_ESCOLA`/`SESS_EDUCA_ADMIN`), `httponly` + `samesite=Lax` (+ `secure` em HTTPS), validade deslizante de 24h e `session_regenerate_id(true)` no login; logout expira apenas a sessão da área ativa |
 | Upload | validação de mime (imagem), extensão permitida e tamanho ≤ 2MB; nome gerado com `random_bytes` (hex de 16 chars) |
 | Traversal | upload salvo em `public/uploads` com nome aleatório |
 | Brute force | sem bloqueio dedicado (melhoria futura) — senha bcrypt |
@@ -344,7 +357,7 @@ MySQL: `mysql -u root < database/schema.sql` (cria o banco + usuário administra
 Ex.: criar `/relatorios` no admin.
 
 1. **Rota**: em `routes/web.php:…` → `$router->get('/admin/relatorios', RelatorioController::class, 'index');`
-2. **Controller**: `app/Controllers/Admin/RelatorioController.php` com `use App\Core\Controller;` e, no `__construct`, `parent::__construct(true)` para exigir papel **admin** (o parâmetro `true` ativa a proteção).
+2. **Controller**: `app/Controllers/Admin/RelatorioController.php` com `use App\Core\Controller;` e, no `__construct`, o guard de acesso — `Auth::requireAcessoAdmin()` (admin **ou** supervisor) ou `Auth::requireAdmin()` (somente admin).
 3. **Model** (se precisar de consulta): estender `App\Core\Model` definindo `$tabela`.
 4. **View**: `views/admin/relatorios/index.php` usando o layout
    ```php
@@ -352,7 +365,7 @@ Ex.: criar `/relatorios` no admin.
    // ... conteúdo usando e($var) ...
    require __DIR__ . '/../../layouts/admin_footer.php';
    ```
-5. Chamar pelo controller: `$this->viewAdmin('admin/relatorios/index', ['relatorios' => $rows]);`
+5. Chamar pelo controller: `$this->view('admin/relatorios/index', ['relatorios' => $rows]);`
 
 **Para POST** adicione `csrf_field()` no form e `Csrf::validate()` no controller.
 
@@ -382,16 +395,16 @@ Os footers (`admin_footer.php`/`escola_footer.php`) incluem `layouts/alertas.php
 
 Não há framework de testes automatizados no projeto. A validação de ponta a ponta é feita por scripts manuais em PowerShell/curl (no diretório `C:\Users\Felipe\AppData\Local\Temp\opencode\`), que exercitam no servidor real:
 
-- **Fluxo escola** (`teste_escola.ps1`): login → catálogo (busca/filtro/paginação) → adicionar/atualizar/remover carrinho (validações de estoque, produto inexistente, CSRF) → revisão → confirmar → sucesso → histórico → detalhe → logout;
-- **Fluxo admin** (`teste_admin*.ps1`): login → dashboard (gráficos) → pedidos (status, excluir com restauro de estoque) → categorias/produtos/usuários (CRUD completo) → estoque (ajuste inline por produto) → configurações → proteção de rotas por papel → CSRF inválido (419) → 404 → logout.
+- **Fluxo escola**: login → catálogo (busca/filtro/paginação, sem exibir estoque) → adicionar/atualizar/remover carrinho (sem bloqueio de estoque; produto inexistente e CSRF) → revisão → confirmar → sucesso (link/mensagem do WhatsApp) → histórico → detalhe → logout;
+- **Fluxo admin**: login → dashboard (gráficos) → pedidos (mudança de status com validação de estoque na conclusão e restauração ao sair de concluído; excluir com restauro) → categorias/produtos/usuários (CRUD completo) → estoque (filtros `todos`/`asc`/`baixo`/`zerado`, campo readonly) → configurações (WhatsApp admin-only) → proteção de rotas por papel → CSRF inválido (419) → 404 → logout;
+- **Sessões**: verificação de `SESS_EDUCA_ESCOLA`/`SESS_EDUCA_ADMIN` simultâneos, logout independente e mensagens de expiração/desconexão.
 
-Cada execução cria um usuário temporário (admin + escola), testa e **remove tudo no final**, restaurando estoques alterados.
+Cada execução cria um usuário temporário (admin + escola), testa e **remove tudo no final**, restaurando estoques alterados. Não deixar scripts/sondas temporários dentro de `public/`.
 
 ---
 
 ## 15. Melhorias futuras (roadmap)
 
-- Restauração de estoque ao **cancelar** pedido (a exclusão de pedido já restaura);
 - Impressão/exportação (PDF) dos pedidos;
 - Notificação push via PWA;
 - Categorias com subcategorias;

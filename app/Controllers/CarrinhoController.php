@@ -42,20 +42,6 @@ class CarrinhoController extends Controller
             $this->jsonResponse(['ok' => false, 'mensagem' => 'Produto indisponível.'], 404);
         }
 
-        $estoque = (int) $produto['quantidade_estoque'];
-        $jaNoCarrinho = CarrinhoService::obter()[$produtoId] ?? 0;
-
-        // Valida a quantidade total (carrinho + nova) contra o estoque
-        if ($estoque <= 0) {
-            $this->jsonResponse(['ok' => false, 'mensagem' => 'Produto indisponível.'], 422);
-        }
-        if (($jaNoCarrinho + $quantidade) > $estoque) {
-            $estaMensagem = $jaNoCarrinho > 0
-                ? "Limite de estoque atingido (disponível: {$estoque})."
-                : "Quantidade maior que o estoque disponível ({$estoque}).";
-            $this->jsonResponse(['ok' => false, 'mensagem' => $estaMensagem], 422);
-        }
-
         CarrinhoService::adicionar($produtoId, $quantidade);
 
         $this->jsonResponse([
@@ -76,14 +62,6 @@ class CarrinhoController extends Controller
 
         if (!$produtoId || $quantidade < 0) {
             $this->jsonResponse(['ok' => false, 'mensagem' => 'Dados inválidos.'], 422);
-        }
-
-        $produto = (new Produto())->find($produtoId);
-        if ($produto && $quantidade > (int) $produto['quantidade_estoque']) {
-            $this->jsonResponse([
-                'ok' => false,
-                'mensagem' => 'Quantidade maior que o estoque disponível (' . (int) $produto['quantidade_estoque'] . ').',
-            ], 422);
         }
 
         CarrinhoService::atualizar($produtoId, $quantidade);

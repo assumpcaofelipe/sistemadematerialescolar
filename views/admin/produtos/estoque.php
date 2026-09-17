@@ -22,14 +22,15 @@
     </div>
     <div class="col-6 col-md-3">
         <select name="situacao" class="form-select">
-            <option value="" <?= ($situacao === '') ? 'selected' : '' ?>>Baixo e zerado (até <?= (int) $limiteBaixo ?>)</option>
-            <option value="baixo" <?= ($situacao === 'baixo') ? 'selected' : '' ?>>Somente baixo</option>
-            <option value="zerado" <?= ($situacao === 'zerado') ? 'selected' : '' ?>>Somente zerado</option>
+            <option value="todos" <?= ($situacao === 'todos') ? 'selected' : '' ?>>Todos os produtos (maior para o menor)</option>
+            <option value="asc" <?= ($situacao === 'asc') ? 'selected' : '' ?>>Todos os produtos (menor para o maior)</option>
+            <option value="baixo" <?= ($situacao === 'baixo') ? 'selected' : '' ?>>Estoque baixo (menor que <?= (int) $limiteBaixo ?>)</option>
+            <option value="zerado" <?= ($situacao === 'zerado') ? 'selected' : '' ?>>Estoque zerado</option>
         </select>
     </div>
     <div class="col-12 col-md-2 d-flex gap-2">
         <button class="btn btn-primary flex-fill" type="submit">Filtrar</button>
-        <?php if ($busca !== '' || $categoriaId || $situacao !== ''): ?>
+        <?php if ($busca !== '' || $categoriaId || $situacao !== 'todos'): ?>
             <a href="/admin/estoque" class="btn btn-outline-secondary">Limpar</a>
         <?php endif; ?>
     </div>
@@ -52,6 +53,7 @@
                     <tr><td colspan="5" class="text-center text-muted py-4">Nenhum produto nesta condição.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($produtos as $produto): ?>
+                    <?php $qtd = (int) $produto['quantidade_estoque']; ?>
                     <tr>
                         <td>
                             <div class="d-flex align-items-center gap-2" style="max-width: 520px;">
@@ -69,21 +71,21 @@
                         </td>
                         <td><?= e($produto['categoria_nome']) ?></td>
                         <td class="text-center">
-                            <?php if ((int) $produto['quantidade_estoque'] === 0): ?>
+                            <?php if ($qtd < 0): ?>
+                                <span class="badge bg-danger">Faltando <?= abs($qtd) ?></span>
+                            <?php elseif ($qtd === 0): ?>
                                 <span class="badge bg-danger">Zerado</span>
-                            <?php else: ?>
+                            <?php elseif ($qtd < (int) $limiteBaixo): ?>
                                 <span class="badge bg-warning text-dark">Baixo</span>
+                            <?php else: ?>
+                                <span class="text-muted small">Ok</span>
                             <?php endif; ?>
                         </td>
                         <td class="text-center">
-                            <form method="post" action="/admin/produtos/estoque/<?= (int) $produto['id'] ?>"
-                                  class="d-inline-flex align-items-center gap-1 js-ajuste-estoque">
-                                <?= csrf_field() ?>
-                                <input type="number" name="quantidade" min="0" step="1"
-                                       class="form-control form-control-sm text-center"
-                                       style="width: 84px;" value="<?= (int) $produto['quantidade_estoque'] ?>">
-                                <button class="btn btn-sm btn-outline-primary" type="submit" title="Salvar estoque">OK</button>
-                            </form>
+                            <input type="number" step="1" readonly
+                                   class="form-control form-control-sm text-center"
+                                   style="width: 84px; display: -webkit-box; -webkit-box-pack: center; color: <?= $qtd < 0 ? '#dc3545' : 'inherit' ?>;"
+                                   value="<?= $qtd ?>"<?= $qtd < 0 ? ' title="Estoque em falta"' : '' ?>>
                         </td>
                         <td class="text-end">
                             <a href="/admin/produtos/editar/<?= (int) $produto['id'] ?>" class="btn btn-sm btn-outline-primary">Editar</a>

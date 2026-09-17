@@ -46,6 +46,7 @@
                     <tr><td colspan="5" class="text-center text-muted py-4">Nenhum produto encontrado.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($produtos as $produto): ?>
+                    <?php $qtd = (int) $produto['quantidade_estoque']; ?>
                     <tr>
                         <td>
                             <div class="d-flex align-items-center gap-2" style="max-width: 520px;">
@@ -63,14 +64,15 @@
                         </td>
                         <td><?= e($produto['categoria_nome']) ?></td>
                         <td class="text-center">
-                            <form method="post" action="/admin/produtos/estoque/<?= (int) $produto['id'] ?>"
-                                  class="d-inline-flex align-items-center gap-1 js-ajuste-estoque">
-                                <?= csrf_field() ?>
-                                <input type="number" name="quantidade" min="0" step="1"
-                                       class="form-control form-control-sm text-center"
-                                       style="width: 84px;" value="<?= (int) $produto['quantidade_estoque'] ?>">
-                                <button class="btn btn-sm btn-outline-primary" type="submit" title="Salvar estoque">OK</button>
-                            </form>
+                            <input type="number" step="1" readonly
+                                   class="form-control form-control-sm text-center"
+                                   style="width: 84px; color: <?= $qtd < 0 ? '#dc3545' : 'inherit' ?>;"
+                                   value="<?= $qtd ?>"<?= $qtd < 0 ? ' title="Estoque em falta"' : '' ?>>
+                            <?php if ($qtd === 0): ?>
+                                <span class="badge bg-danger">Zerado</span>
+                            <?php elseif ($qtd < 0): ?>
+                                <span class="badge bg-danger">Faltando <?= abs($qtd) ?></span>
+                            <?php endif; ?>
                         </td>
                         <td class="text-center">
                             <?php if ((int) $produto['status'] === 1): ?>

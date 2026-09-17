@@ -187,25 +187,7 @@ class Produto
         return $stmt->execute([$id]);
     }
 
-    public function ajustarEstoque(int $id, int $quantidade): bool
-    {
-        $stmt = $this->db->prepare(
-            'UPDATE produtos SET quantidade_estoque = ? WHERE id = ?'
-        );
-        return $stmt->execute([$quantidade, $id]);
-    }
-
-    public function debitarEstoque(int $id, int $quantidade): bool
-    {
-        $stmt = $this->db->prepare(
-            'UPDATE produtos
-             SET quantidade_estoque = quantidade_estoque - ?
-             WHERE id = ? AND quantidade_estoque >= ?'
-        );
-        return $stmt->execute([$quantidade, $id, $quantidade]);
-    }
-
-    public function baixoEstoque(int $limite = 5): array
+public function baixoEstoque(int $limite = 5): array
     {
         $stmt = $this->db->prepare(
             'SELECT p.*, c.nome AS categoria_nome
@@ -234,14 +216,14 @@ class Produto
     ): array {
         $condicoes = ['p.status = 1'];
         $params = [];
+        $ordenacao = 'p.quantidade_estoque DESC, p.nome ASC';
 
-        if ($situacao === 'zerado') {
+        if ($situacao === 'asc') {
+            $ordenacao = 'p.quantidade_estoque ASC, p.nome ASC';
+        } elseif ($situacao === 'zerado') {
             $condicoes[] = 'p.quantidade_estoque = 0';
         } elseif ($situacao === 'baixo') {
-            $condicoes[] = 'p.quantidade_estoque BETWEEN 1 AND ?';
-            $params[] = $limiteBaixo;
-        } else {
-            $condicoes[] = 'p.quantidade_estoque <= ?';
+            $condicoes[] = 'p.quantidade_estoque > 0 AND p.quantidade_estoque < ?';
             $params[] = $limiteBaixo;
         }
 
@@ -272,7 +254,7 @@ class Produto
             "SELECT p.*, c.nome AS categoria_nome
              FROM produtos p
              INNER JOIN categorias c ON c.id = p.categoria_id{$where}
-             ORDER BY p.quantidade_estoque ASC, p.nome ASC
+             ORDER BY {$ordenacao}
              LIMIT {$porPagina} OFFSET {$deslocamento}"
         );
         $stmt->execute($params);

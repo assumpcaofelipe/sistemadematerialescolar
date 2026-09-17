@@ -45,19 +45,10 @@ class PedidoController extends Controller
 
         $itens = CarrinhoService::itensDetalhados();
 
-        // 1. Validar estoque novamente
-        $pedidoService = new PedidoService();
-        $erros = $pedidoService->validarEstoque($itens);
-
-        if ($erros) {
-            $this->flash('pedido_erro', 'Um ou mais produtos do seu pedido ficaram indisponíveis ou com estoque insuficiente. Ajuste as quantidades para continuar.');
-            $this->flash('pedido_detalhes', $erros);
-            $this->redirect('/pedido/revisao');
-        }
-
         $usuario = Auth::user();
 
         // 2-4. Salvar pedido, debitar estoque e gerar número (transação)
+        $pedidoService = new PedidoService();
         $resultado = $pedidoService->confirmar((int) $usuario['id'], $itens);
 
         if (!$resultado) {
