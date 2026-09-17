@@ -50,7 +50,7 @@ class NotificacaoService
 
             $linhasItens = '';
             foreach ($itens as $item) {
-                $linhasItens .= '<li>' . e((int) $item['quantidade']) . 'x '
+                $linhasItens .= '<li>' . e((string) (int) $item['quantidade']) . 'x '
                     . e($item['produto_nome']) . '</li>';
             }
 
